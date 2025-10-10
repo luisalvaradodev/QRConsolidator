@@ -1,32 +1,36 @@
-// Para leer cualquier archivo de entrada
-export interface RawInventoryItem {
-  codigo?: string;
-  nombre?: string;
-  existenciaActual?: number;
-  cantidad?: number; // Representa las ventas en los archivos de "productos vendidos"
-  departamento?: string;
-  marca?: string;
-  sourceFile: string; // Para saber si es un listado de stock o de ventas
-}
-
-// El objeto final con todos los cálculos realizados
-export interface ConsolidatedInventoryItem {
+// Para leer los datos de cada archivo de farmacia
+export interface InventoryItem {
   codigo: string;
   nombre: string;
   existenciaActual: number;
-  venta60d: number;
-  venta30d: number;
-  ventaDiaria: number;
-  diasDeInventario: number;
+  departamento: string;
+  marca: string;
+  cantidad: number;
+  promedioDiario: number;
+  sugerido40d: number;
+  sugerido45d: number;
+  sugerido50d: number;
+  sugerido60d: number;
+  excesoUnidades: number;
+  farmacia: string;
+}
+
+// Para el resultado final consolidado
+export interface ConsolidatedInventoryItem {
+  codigo: string;
+  nombres: string[];
+  existenciaActual: number;
+  departamentos: string[];
+  marcas: string[];
+  cantidad: number;
+  promedioDiario: number;
   clasificacion: string;
   sugerido40d: number;
   sugerido45d: number;
   sugerido50d: number;
   sugerido60d: number;
   excesoUnidades: number;
-  departamento: string;
-  marca: string;
-  farmacias: string[]; // Para saber en qué farmacias está listado
+  farmacias: string[];
 }
 
 export interface FilterState {

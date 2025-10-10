@@ -15,9 +15,9 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
     const newDirection = (sortColumn === column && sortDirection === 'asc') ? 'desc' : 'asc';
     onTableStateChange({ ...tableState, sortColumn: column, sortDirection: newDirection, currentPage: 1 });
   };
-
+  
   const handlePageChange = (page: number) => onTableStateChange({ ...tableState, currentPage: page });
-
+  
   const sortedData = useMemo(() => {
     if (!sortColumn) return data;
     return [...data].sort((a, b) => {
@@ -26,12 +26,12 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
       }
-      return sortDirection === 'asc'
-        ? String(aVal).localeCompare(String(bVal))
-        : String(bVal).localeCompare(String(aVal));
+      const aStr = Array.isArray(aVal) ? aVal.join(', ') : String(aVal || '');
+      const bStr = Array.isArray(bVal) ? bVal.join(', ') : String(bVal || '');
+      return sortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
   }, [data, sortColumn, sortDirection]);
-
+  
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const paginatedData = sortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -41,23 +41,24 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
   };
 
   const columns = [
-    { key: 'codigo', label: 'Código', width: '10%' },
-    { key: 'nombre', label: 'Nombre', width: '20%' },
-    { key: 'existenciaActual', label: 'Stock', isNumeric: true, width: '6%' },
-    { key: 'ventaDiaria', label: 'Venta/Día', isNumeric: true, width: '7%' },
-    { key: 'diasDeInventario', label: 'Días Inv.', isNumeric: true, width: '7%' },
-    { key: 'clasificacion', label: 'Clasificación', width: '9%' },
-    { key: 'sugerido40d', label: 'Sug. 40d', isNumeric: true, width: '7%' },
-    { key: 'sugerido45d', label: 'Sug. 45d', isNumeric: true, width: '7%' },
-    { key: 'sugerido50d', label: 'Sug. 50d', isNumeric: true, width: '7%' },
-    { key: 'sugerido60d', label: 'Sug. 60d', isNumeric: true, width: '7%' },
-    { key: 'excesoUnidades', label: 'Exceso Und.', isNumeric: true, width: '7%' },
+    { key: 'codigo', label: 'Código' }, { key: 'nombres', label: 'Nombre' },
+    { key: 'existenciaActual', label: 'Exist. Actual', isNumeric: true },
+    { key: 'departamentos', label: 'Departamento' }, { key: 'marcas', label: 'Marca' },
+    { key: 'cantidad', label: 'Cantidad', isNumeric: true },
+    { key: 'promedioDiario', label: 'Prom. Diario', isNumeric: true },
+    { key: 'clasificacion', label: 'Clasificación' },
+    { key: 'sugerido40d', label: 'Sug. 40d', isNumeric: true },
+    { key: 'sugerido45d', label: 'Sug. 45d', isNumeric: true },
+    { key: 'sugerido50d', label: 'Sug. 50d', isNumeric: true },
+    { key: 'sugerido60d', label: 'Sug. 60d', isNumeric: true },
+    { key: 'excesoUnidades', label: 'Exceso Und.', isNumeric: true },
+    { key: 'farmacias', label: 'Farmacia' },
   ];
 
   if (data.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-        <p className="text-gray-500 text-lg">Carga "Listados de Productos" y "Productos Vendidos" para comenzar.</p>
+        <p className="text-gray-500 text-lg">Carga los archivos de tus farmacias para comenzar.</p>
       </div>
     );
   }
@@ -69,7 +70,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
           <thead className="bg-gray-50">
             <tr>
               {columns.map(col => (
-                <th key={col.key} style={{ width: col.width }} className={`p-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => handleSort(col.key as keyof ConsolidatedInventoryItem)}>
+                <th key={col.key} className={`p-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => handleSort(col.key as keyof ConsolidatedInventoryItem)}>
                   <div className={`flex items-center ${col.isNumeric ? 'justify-end' : ''}`}>{col.label}<SortIcon column={col.key as keyof ConsolidatedInventoryItem}/></div>
                 </th>
               ))}
@@ -79,10 +80,12 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
             {paginatedData.map((item) => (
               <tr key={item.codigo} className="hover:bg-gray-50">
                 <td className="p-3 font-mono truncate" title={item.codigo}>{item.codigo}</td>
-                <td className="p-3 truncate" title={item.nombre}>{item.nombre}</td>
-                <td className="p-3 text-right font-medium text-gray-800">{item.existenciaActual}</td>
-                <td className="p-3 text-right text-gray-600">{item.ventaDiaria.toFixed(2)}</td>
-                <td className="p-3 text-right text-gray-600">{isFinite(item.diasDeInventario) ? item.diasDeInventario.toFixed(0) : '∞'}</td>
+                <td className="p-3 truncate" title={item.nombres.join(', ')}>{item.nombres.join(', ')}</td>
+                <td className="p-3 text-right font-medium">{item.existenciaActual}</td>
+                <td className="p-3 truncate" title={item.departamentos.join(', ')}>{item.departamentos.join(', ')}</td>
+                <td className="p-3 truncate" title={item.marcas.join(', ')}>{item.marcas.join(', ')}</td>
+                <td className="p-3 text-right">{item.cantidad}</td>
+                <td className="p-3 text-right">{item.promedioDiario.toFixed(2)}</td>
                 <td className="p-3 text-center">
                   <span className={`inline-block w-full px-2 py-1 text-xs font-semibold rounded-full ${
                     item.clasificacion === 'Falla' ? 'bg-red-100 text-red-800' :
@@ -97,6 +100,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
                 <td className="p-3 text-right font-bold text-blue-600">{item.sugerido50d}</td>
                 <td className="p-3 text-right font-bold text-blue-600">{item.sugerido60d}</td>
                 <td className="p-3 text-right font-medium text-orange-600">{item.excesoUnidades}</td>
+                <td className="p-3 truncate" title={item.farmacias.join(', ')}>{item.farmacias.join(', ')}</td>
               </tr>
             ))}
           </tbody>
