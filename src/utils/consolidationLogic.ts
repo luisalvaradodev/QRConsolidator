@@ -1,64 +1,76 @@
 // src/utils/consolidationLogic.ts
 
-import { InventoryItem, ConsolidatedInventoryItem } from '../types/inventory';
+import { RawInventoryItem, ConsolidatedInventoryItem } from '../types/inventory';
 
-export const consolidateAndSuggest = (items: InventoryItem[]): ConsolidatedInventoryItem[] => {
-  const consolidatedMap: { [key: string]: any } = {};
+export const consolidateData = (items: RawInventoryItem[]): ConsolidatedInventoryItem[] => {
+  const productMap: { [key: string]: any } = {};
 
-  // Paso 1: Agrupar por código y sumar los valores de stock real y de sistema por separado.
-  items.forEach(item => {
-    if (!item.codigo) return; // Ignorar filas sin código
+  // Paso 1: Identificar los archivos de "Listado de Productos" y "Productos Mas Vendidos"
+  const stockFiles = items.filter(item => item.sourceFile.toLowerCase().includes('listado'));
+  const salesFiles = items.filter(item => item.sourceFile.toLowerCase().includes('vendidos'));
 
-    if (!consolidatedMap[item.codigo]) {
-      consolidatedMap[item.codigo] = {
-        nombres: new Set<string>(),
-        departamentos: new Set<string>(),
-        marcas: new Set<string>(),
-        farmacias: new Set<string>(),
-        existenciaActual: 0, // Campo para el Stock Real
-        cantidad: 0,         // Campo para el Stock del Sistema
-        promedioDiario: 0,
-      };
-    }
-    
-    const product = consolidatedMap[item.codigo];
-    product.nombres.add(item.nombre);
-    product.departamentos.add(item.departamento);
-    product.marcas.add(item.marca);
-    product.farmacias.add(item.farmacia);
-    product.existenciaActual += item.existenciaActual;
-    product.cantidad += item.cantidad;
-    product.promedioDiario += item.promedioDiario;
-  });
-
-  // Paso 2: Aplicar la lógica de negocio a los totales consolidados.
-  return Object.entries(consolidatedMap).map(([codigo, product]) => {
-    const { existenciaActual, cantidad, promedioDiario } = product;
-    
-    let clasificacion = 'OK'; // Clasificación por defecto
-
-    // --- LÓGICA DE NEGOCIO CORREGIDA ---
-    if (existenciaActual <= 0 && cantidad > 0) {
-      // Si no hay stock FÍSICO, pero el SISTEMA dice que hay, es una FALLA.
-      clasificacion = 'Falla'; 
-    } else if (promedioDiario > 0 && (existenciaActual / promedioDiario) > 90) {
-      // El exceso se calcula sobre el stock FÍSICO.
-      clasificacion = 'Exceso'; 
-    } else if (promedioDiario === 0 && existenciaActual > 0) {
-      // El producto no vendido se basa en el stock FÍSICO.
-      clasificacion = 'No vendido'; 
-    }
-    
-    return {
-      codigo,
-      nombres: Array.from(product.nombres),
-      departamentos: Array.from(product.departamentos),
-      marcas: Array.from(product.marcas),
-      farmacias: Array.from(product.farmacias),
-      existenciaActual: product.existenciaActual,
-      cantidad: product.cantidad,
-      promedioDiario: product.promedioDiario,
-      clasificacion,
+  // Paso 2: Procesar el stock. Esta es nuestra lista maestra de productos.
+  stockFiles.forEach(item => {
+    if (!item.codigo) return;
+    productMap[item.codigo] = {
+      nombre: item.nombre,
+      existenciaActual: (productMap[item.codigo]?.existenciaActual || 0) + item.existenciaActual,
+      departamento: item.departamento,
+      marca: item.marca,
+      farmacias: new Set([...(productMap[item.codigo]?.farmacias || []), item.sourceFile]),
+      venta60d: 0, // Inicializar ventas
     };
   });
+
+  // Paso 3: Procesar las ventas y sumarlas a los productos existentes.
+  salesFiles.forEach(item => {
+    if (item.codigo && productMap[item.codigo]) {
+      productMap[item.codigo].venta60d += item.cantidad;
+    }
+  });
+
+  // Paso 4: Calcular todo lo demás (clasificación, sugeridos, etc.)
+  const consolidatedList: ConsolidatedInventoryItem[] = Object.entries(productMap).map(([codigo, product]) => {
+    const { existenciaActual, venta60d } = product;
+    
+    // Cálculos clave
+    const ventaDiaria = venta60d / 60;
+    const diasDeInventario = ventaDiaria > 0 ? existenciaActual / ventaDiaria : Infinity;
+
+    // Lógica de Clasificación del Prompt
+    let clasificacion = 'OK';
+    if (venta60d <= 0 && existenciaActual > 0) {
+      clasificacion = 'No vendido';
+    } else if (diasDeInventario > 60) {
+      clasificacion = 'Exceso';
+    } else if (diasDeInventario < 20) {
+      clasificacion = 'Falla';
+    }
+
+    // Lógica de Sugeridos del Prompt
+    const sugerido = (days: number) => Math.ceil(Math.max(0, (ventaDiaria * days) - existenciaActual));
+    
+    // Lógica de Exceso de Unidades del Prompt
+    const excesoUnidades = ventaDiaria > 0 ? Math.max(0, existenciaActual - (ventaDiaria * 60)) : existenciaActual;
+
+    return {
+      codigo,
+      nombre: product.nombre,
+      existenciaActual,
+      venta60d,
+      ventaDiaria,
+      diasDeInventario,
+      clasificacion,
+      sugerido40d: sugerido(40),
+      sugerido45d: sugerido(45),
+      sugerido50d: sugerido(50),
+      sugerido60d: sugerido(60),
+      excesoUnidades: Math.ceil(excesoUnidades),
+      departamento: product.departamento,
+      marca: product.marca,
+      farmacias: Array.from(product.farmacias),
+    };
+  });
+
+  return consolidatedList;
 };
