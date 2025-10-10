@@ -15,9 +15,9 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
     const newDirection = (sortColumn === column && sortDirection === 'asc') ? 'desc' : 'asc';
     onTableStateChange({ ...tableState, sortColumn: column, sortDirection: newDirection, currentPage: 1 });
   };
-  
+
   const handlePageChange = (page: number) => onTableStateChange({ ...tableState, currentPage: page });
-  
+
   const sortedData = useMemo(() => {
     if (!sortColumn) return data;
     return [...data].sort((a, b) => {
@@ -26,12 +26,12 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
       }
-      return sortDirection === 'asc' 
-        ? String(aVal).localeCompare(String(bVal)) 
+      return sortDirection === 'asc'
+        ? String(aVal).localeCompare(String(bVal))
         : String(bVal).localeCompare(String(aVal));
     });
   }, [data, sortColumn, sortDirection]);
-  
+
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const paginatedData = sortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -41,18 +41,17 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
   };
 
   const columns = [
-    { key: 'codigo', label: 'Código' },
-    { key: 'nombre', label: 'Nombre' },
-    { key: 'existenciaActual', label: 'Stock', isNumeric: true },
-    { key: 'ventaDiaria', label: 'Venta/Día', isNumeric: true },
-    { key: 'diasDeInventario', label: 'Días Inv.', isNumeric: true },
-    { key: 'clasificacion', label: 'Clasificación' },
-    { key: 'sugerido40d', label: 'Sug. 40d', isNumeric: true },
-    { key: 'sugerido45d', label: 'Sug. 45d', isNumeric: true },
-    { key: 'sugerido50d', label: 'Sug. 50d', isNumeric: true },
-    { key: 'sugerido60d', label: 'Sug. 60d', isNumeric: true },
-    { key: 'excesoUnidades', label: 'Exceso Und.', isNumeric: true },
-    { key: 'departamento', label: 'Departamento' },
+    { key: 'codigo', label: 'Código', width: '10%' },
+    { key: 'nombre', label: 'Nombre', width: '20%' },
+    { key: 'existenciaActual', label: 'Stock', isNumeric: true, width: '6%' },
+    { key: 'ventaDiaria', label: 'Venta/Día', isNumeric: true, width: '7%' },
+    { key: 'diasDeInventario', label: 'Días Inv.', isNumeric: true, width: '7%' },
+    { key: 'clasificacion', label: 'Clasificación', width: '9%' },
+    { key: 'sugerido40d', label: 'Sug. 40d', isNumeric: true, width: '7%' },
+    { key: 'sugerido45d', label: 'Sug. 45d', isNumeric: true, width: '7%' },
+    { key: 'sugerido50d', label: 'Sug. 50d', isNumeric: true, width: '7%' },
+    { key: 'sugerido60d', label: 'Sug. 60d', isNumeric: true, width: '7%' },
+    { key: 'excesoUnidades', label: 'Exceso Und.', isNumeric: true, width: '7%' },
   ];
 
   if (data.length === 0) {
@@ -70,7 +69,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
           <thead className="bg-gray-50">
             <tr>
               {columns.map(col => (
-                <th key={col.key} className={`p-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => handleSort(col.key as keyof ConsolidatedInventoryItem)}>
+                <th key={col.key} style={{ width: col.width }} className={`p-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => handleSort(col.key as keyof ConsolidatedInventoryItem)}>
                   <div className={`flex items-center ${col.isNumeric ? 'justify-end' : ''}`}>{col.label}<SortIcon column={col.key as keyof ConsolidatedInventoryItem}/></div>
                 </th>
               ))}
@@ -98,13 +97,11 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
                 <td className="p-3 text-right font-bold text-blue-600">{item.sugerido50d}</td>
                 <td className="p-3 text-right font-bold text-blue-600">{item.sugerido60d}</td>
                 <td className="p-3 text-right font-medium text-orange-600">{item.excesoUnidades}</td>
-                <td className="p-3 truncate" title={item.departamento}>{item.departamento}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      
       <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
         <div className="text-sm text-gray-700">Página {currentPage} de {totalPages}</div>
         <div className="flex items-center space-x-1">

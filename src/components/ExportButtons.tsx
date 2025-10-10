@@ -8,7 +8,7 @@ interface ExportButtonsProps {
 }
 
 const exportToExcel = (data: ConsolidatedInventoryItem[], filename: string) => {
-  // Mapear los datos al formato deseado para el Excel
+  // Mapear los datos al formato deseado para el Excel, incluyendo todos los cálculos
   const dataForExport = data.map(item => ({
     'Código': item.codigo,
     'Nombre': item.nombre,
@@ -29,7 +29,7 @@ const exportToExcel = (data: ConsolidatedInventoryItem[], filename: string) => {
 
   const worksheet = XLSX.utils.json_to_sheet(dataForExport);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventario Consolidado');
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Análisis de Inventario');
   XLSX.writeFile(workbook, filename);
 };
 

@@ -96,7 +96,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ data, filters, onFilterChange
 
   if (data.length === 0) {
     return (
-      <div className="w-80 bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-4 border-b border-gray-200 flex items-center space-x-2"><Filter className="h-5 w-5 text-gray-500" /><h2 className="font-semibold text-gray-800">Filtros</h2></div>
         <div className="p-4 text-center text-gray-500">Carga archivos para ver los filtros.</div>
       </div>
@@ -104,16 +104,16 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ data, filters, onFilterChange
   }
 
   return (
-    <div className="w-80 bg-white rounded-xl shadow-sm border border-gray-200">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center space-x-2"><Filter className="h-5 w-5 text-gray-500" /><h2 className="font-semibold text-gray-800">Filtros</h2></div>
         {hasActiveFilters() && <button onClick={clearAllFilters} className="text-sm text-gray-500 hover:text-gray-700">Limpiar</button>}
       </div>
       <div className="divide-y divide-gray-200">
-        <FilterSection title="Farmacia (Listado)" values={farmaciaData.uniqueValues} selected={filters.farmacia} onChange={(s) => onFilterChange({ ...filters, farmacia: s })} isOpen={openSections.farmacia} onToggle={() => toggleSection('farmacia')} countMap={farmaciaData.valueCounts} />
+        <FilterSection title="Clasificación" values={clasificacionData.uniqueValues} selected={filters.clasificacion} onChange={(s) => onFilterChange({ ...filters, clasificacion: s })} isOpen={openSections.clasificacion} onToggle={() => toggleSection('clasificacion')} countMap={clasificacionData.valueCounts} />
         <FilterSection title="Departamento" values={departamentoData.uniqueValues} selected={filters.departamento} onChange={(s) => onFilterChange({ ...filters, departamento: s })} isOpen={openSections.departamento} onToggle={() => toggleSection('departamento')} countMap={departamentoData.valueCounts} />
         <FilterSection title="Marca" values={marcaData.uniqueValues} selected={filters.marca} onChange={(s) => onFilterChange({ ...filters, marca: s })} isOpen={openSections.marca} onToggle={() => toggleSection('marca')} countMap={marcaData.valueCounts} />
-        <FilterSection title="Clasificación" values={clasificacionData.uniqueValues} selected={filters.clasificacion} onChange={(s) => onFilterChange({ ...filters, clasificacion: s })} isOpen={openSections.clasificacion} onToggle={() => toggleSection('clasificacion')} countMap={clasificacionData.valueCounts} />
+        <FilterSection title="Farmacia (Listado)" values={farmaciaData.uniqueValues} selected={filters.farmacia} onChange={(s) => onFilterChange({ ...filters, farmacia: s })} isOpen={openSections.farmacia} onToggle={() => toggleSection('farmacia')} countMap={farmaciaData.valueCounts} />
       </div>
     </div>
   );

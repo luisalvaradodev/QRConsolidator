@@ -1,23 +1,21 @@
-// src/types/inventory.ts
-
-// Tipo genérico para leer CUALQUIER archivo inicial
+// Para leer cualquier archivo de entrada
 export interface RawInventoryItem {
   codigo?: string;
   nombre?: string;
   existenciaActual?: number;
-  cantidad?: number; // Puede ser stock de sistema o ventas, dependiendo del archivo
+  cantidad?: number; // Representa las ventas en los archivos de "productos vendidos"
   departamento?: string;
   marca?: string;
-  // Añadimos el nombre del archivo para identificar su tipo
-  sourceFile: string; 
+  sourceFile: string; // Para saber si es un listado de stock o de ventas
 }
 
-// El objeto final, con todos los cálculos hechos
+// El objeto final con todos los cálculos realizados
 export interface ConsolidatedInventoryItem {
   codigo: string;
   nombre: string;
   existenciaActual: number;
   venta60d: number;
+  venta30d: number;
   ventaDiaria: number;
   diasDeInventario: number;
   clasificacion: string;
@@ -28,7 +26,7 @@ export interface ConsolidatedInventoryItem {
   excesoUnidades: number;
   departamento: string;
   marca: string;
-  farmacias: string[]; // Para saber en qué listas de stock aparece
+  farmacias: string[]; // Para saber en qué farmacias está listado
 }
 
 export interface FilterState {

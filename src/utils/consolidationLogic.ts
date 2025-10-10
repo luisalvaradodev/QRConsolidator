@@ -1,43 +1,36 @@
-// src/utils/consolidationLogic.ts
-
 import { RawInventoryItem, ConsolidatedInventoryItem } from '../types/inventory';
 
 export const consolidateData = (items: RawInventoryItem[]): ConsolidatedInventoryItem[] => {
   const productMap: { [key: string]: any } = {};
 
-  // Paso 1: Identificar los archivos de "Listado de Productos" y "Productos Mas Vendidos"
   const stockFiles = items.filter(item => item.sourceFile.toLowerCase().includes('listado'));
   const salesFiles = items.filter(item => item.sourceFile.toLowerCase().includes('vendidos'));
 
-  // Paso 2: Procesar el stock. Esta es nuestra lista maestra de productos.
   stockFiles.forEach(item => {
     if (!item.codigo) return;
     productMap[item.codigo] = {
-      nombre: item.nombre,
+      nombre: item.nombre || productMap[item.codigo]?.nombre,
       existenciaActual: (productMap[item.codigo]?.existenciaActual || 0) + item.existenciaActual,
-      departamento: item.departamento,
-      marca: item.marca,
+      departamento: item.departamento || productMap[item.codigo]?.departamento,
+      marca: item.marca || productMap[item.codigo]?.marca,
       farmacias: new Set([...(productMap[item.codigo]?.farmacias || []), item.sourceFile]),
-      venta60d: 0, // Inicializar ventas
+      venta60d: 0,
     };
   });
 
-  // Paso 3: Procesar las ventas y sumarlas a los productos existentes.
   salesFiles.forEach(item => {
     if (item.codigo && productMap[item.codigo]) {
       productMap[item.codigo].venta60d += item.cantidad;
     }
   });
 
-  // Paso 4: Calcular todo lo demás (clasificación, sugeridos, etc.)
   const consolidatedList: ConsolidatedInventoryItem[] = Object.entries(productMap).map(([codigo, product]) => {
     const { existenciaActual, venta60d } = product;
-    
-    // Cálculos clave
-    const ventaDiaria = venta60d / 60;
+
+    const venta30d = venta60d / 2;
+    const ventaDiaria = venta30d / 30;
     const diasDeInventario = ventaDiaria > 0 ? existenciaActual / ventaDiaria : Infinity;
 
-    // Lógica de Clasificación del Prompt
     let clasificacion = 'OK';
     if (venta60d <= 0 && existenciaActual > 0) {
       clasificacion = 'No vendido';
@@ -47,10 +40,7 @@ export const consolidateData = (items: RawInventoryItem[]): ConsolidatedInventor
       clasificacion = 'Falla';
     }
 
-    // Lógica de Sugeridos del Prompt
     const sugerido = (days: number) => Math.ceil(Math.max(0, (ventaDiaria * days) - existenciaActual));
-    
-    // Lógica de Exceso de Unidades del Prompt
     const excesoUnidades = ventaDiaria > 0 ? Math.max(0, existenciaActual - (ventaDiaria * 60)) : existenciaActual;
 
     return {
@@ -58,6 +48,7 @@ export const consolidateData = (items: RawInventoryItem[]): ConsolidatedInventor
       nombre: product.nombre,
       existenciaActual,
       venta60d,
+      venta30d,
       ventaDiaria,
       diasDeInventario,
       clasificacion,
@@ -68,7 +59,7 @@ export const consolidateData = (items: RawInventoryItem[]): ConsolidatedInventor
       excesoUnidades: Math.ceil(excesoUnidades),
       departamento: product.departamento,
       marca: product.marca,
-      farmacias: Array.from(product.farmacias),
+      farmacias: Array.from(product.farmacias as Set<string>),
     };
   });
 

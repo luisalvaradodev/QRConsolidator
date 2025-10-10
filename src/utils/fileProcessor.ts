@@ -1,16 +1,16 @@
-// src/utils/fileProcessor.ts
-
 import * as XLSX from 'xlsx';
-import { RawInventoryItem } from '../types/inventory'; // Usamos el nuevo tipo Raw
+import { RawInventoryItem } from '../types/inventory';
 
-interface ColumnMapping { [key: string]: string; }
-
-const COLUMN_MAPPINGS: ColumnMapping = {
-  'código': 'codigo', 'codigo': 'codigo',
+const COLUMN_MAPPINGS: { [key: string]: string } = {
+  'código': 'codigo',
+  'codigo': 'codigo',
   'nombre': 'nombre',
-  'existencia actual': 'existenciaActual', 'existencia': 'existenciaActual',
-  'cantidad': 'cantidad', // Esta es la columna clave que puede significar ventas
-  'departamento': 'departamento', 'dpto. descrip.': 'departamento', 'departamento nombre': 'departamento',
+  'existencia actual': 'existenciaActual',
+  'existencia': 'existenciaActual',
+  'cantidad': 'cantidad',
+  'departamento': 'departamento',
+  'dpto. descrip.': 'departamento',
+  'departamento nombre': 'departamento',
   'marca': 'marca',
 };
 
@@ -31,7 +31,7 @@ const normalizeData = (data: any[], fileName: string): RawInventoryItem[] => {
   });
 
   return data.map(row => {
-    const normalizedRow: any = { sourceFile: fileName }; // Guardamos el origen
+    const normalizedRow: any = { sourceFile: fileName };
     Object.entries(row).forEach(([key, value]) => {
       const mappedKey = mappedHeaders[key];
       if (mappedKey) normalizedRow[mappedKey] = value;
@@ -46,7 +46,7 @@ const normalizeData = (data: any[], fileName: string): RawInventoryItem[] => {
       marca: String(normalizedRow.marca || 'Sin marca').trim(),
       sourceFile: fileName,
     };
-  }).filter(item => item.codigo && !item.nombre?.toUpperCase().includes('COD01')); // Filtramos COD01 aquí
+  }).filter(item => item.codigo && !item.nombre?.toUpperCase().includes('COD01'));
 };
 
 export const processFile = async (file: File): Promise<RawInventoryItem[]> => {
