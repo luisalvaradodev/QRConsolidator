@@ -1,5 +1,3 @@
-// src/types/inventory.ts
-
 // Este tipo representa los datos crudos leídos de cada archivo Excel.
 export interface InventoryItem {
   codigo: string;
