@@ -6,11 +6,12 @@ interface ColumnMapping {
 }
 
 const COLUMN_MAPPINGS: ColumnMapping = {
-  // Identificador
-  'codigo': 'codigo',
-  'code': 'codigo',
-  'id': 'codigo',
-  'identificador': 'codigo',
+  // Identificador
+  'código': 'codigo', 
+  'codigo': 'codigo',
+  'code': 'codigo',
+  'id': 'codigo',
+  'identificador': 'codigo',
   
   // Descripción
   'nombre': 'nombre',
