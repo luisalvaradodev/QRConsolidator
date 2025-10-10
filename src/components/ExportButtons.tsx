@@ -1,23 +1,81 @@
 import React from 'react';
 import { Download, FileText, FileSpreadsheet } from 'lucide-react';
-import { InventoryItem } from '../types/inventory';
-import { exportToCSV, exportToExcel } from '../utils/fileProcessor';
+// --- IMPORTAR EL NUEVO TIPO ---
+import { ConsolidatedInventoryItem } from '../types/inventory';
+import * as XLSX from 'xlsx';
 
 interface ExportButtonsProps {
-  data: InventoryItem[];
+  // --- CAMBIO CLAVE: Usar ConsolidatedInventoryItem[] ---
+  data: ConsolidatedInventoryItem[];
 }
+
+// --- LÓGICA DE EXPORTACIÓN ACTUALIZADA ---
+const exportToCSV = (data: ConsolidatedInventoryItem[], filename: string) => {
+  const headers = [
+    'Código', 'Nombre(s)', 'Stock Total', 'Venta Diaria Prom.', 'Clasificación', 
+    'Sugerido 40d', 'Sugerido 45d', 'Sugerido 50d', 'Sugerido 60d',
+    'Departamento(s)', 'Marca(s)', 'Farmacia(s)'
+  ];
+
+  const csvContent = [
+    headers.join(','),
+    ...data.map(item => [
+      `"${item.codigo}"`,
+      `"${item.nombres.join(', ')}"`,
+      item.existenciaActual,
+      item.promedioDiario,
+      `"${item.clasificacion}"`,
+      item.sugerido40d,
+      item.sugerido45d,
+      item.sugerido50d,
+      item.sugerido60d,
+      `"${item.departamentos.join(', ')}"`,
+      `"${item.marcas.join(', ')}"`,
+      `"${item.farmacias.join(', ')}"`
+    ].join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const exportToExcel = (data: ConsolidatedInventoryItem[], filename: string) => {
+  const worksheet = XLSX.utils.json_to_sheet(data.map(item => ({
+    'Código': item.codigo,
+    'Nombre(s)': item.nombres.join(', '),
+    'Stock Total': item.existenciaActual,
+    'Venta Diaria Prom.': item.promedioDiario,
+    'Clasificación': item.clasificacion,
+    'Sugerido 40d': item.sugerido40d,
+    'Sugerido 45d': item.sugerido45d,
+    'Sugerido 50d': item.sugerido50d,
+    'Sugerido 60d': item.sugerido60d,
+    'Departamento(s)': item.departamentos.join(', '),
+    'Marca(s)': item.marcas.join(', '),
+    'Farmacia(s)': item.farmacias.join(', '),
+  })));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventario Consolidado');
+  XLSX.writeFile(workbook, filename);
+};
+
 
 const ExportButtons: React.FC<ExportButtonsProps> = ({ data }) => {
   const handleExportCSV = () => {
     const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `inventario_consolidado_${timestamp}.csv`;
-    exportToCSV(data, filename);
+    exportToCSV(data, `inventario_consolidado_${timestamp}.csv`);
   };
 
   const handleExportExcel = () => {
     const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `inventario_consolidado_${timestamp}.xlsx`;
-    exportToExcel(data, filename);
+    exportToExcel(data, `inventario_consolidado_${timestamp}.xlsx`);
   };
 
   if (data.length === 0) {
@@ -64,7 +122,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data }) => {
       </div>
       
       <p className="text-xs text-gray-500 mt-3 text-center">
-        Los archivos incluirán todos los datos visibles con los filtros aplicados
+        Los archivos incluirán los datos con los filtros aplicados.
       </p>
     </div>
   );

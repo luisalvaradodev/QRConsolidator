@@ -1,14 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Activity } from 'lucide-react';
 import FileUploader from './components/FileUploader';
 import FilterPanel from './components/FilterPanel';
 import SearchBar from './components/SearchBar';
 import DataTable from './components/DataTable';
 import ExportButtons from './components/ExportButtons';
-import { InventoryItem, FilterState, TableState } from './types/inventory';
+import { InventoryItem, FilterState, TableState, ConsolidatedInventoryItem } from './types/inventory';
+import { consolidateAndSuggest } from './utils/consolidationLogic'; // Asegúrate que la ruta sea correcta
 
 function App() {
-  const [allData, setAllData] = useState<InventoryItem[]>([]);
+  const [, setAllData] = useState<InventoryItem[]>([]); // Mantenemos los datos originales por si los necesitas
+  const [consolidatedData, setConsolidatedData] = useState<ConsolidatedInventoryItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterState>({
@@ -25,8 +27,11 @@ function App() {
   });
 
   const handleFilesProcessed = (data: InventoryItem[]) => {
-    setAllData(data);
-    // Reset filters when new data is loaded
+    setAllData(data); // Guardamos los datos originales
+    const consolidated = consolidateAndSuggest(data); // Procesamos y consolidamos
+    setConsolidatedData(consolidated);
+    
+    // Resetear filtros y búsqueda
     setFilters({
       farmacia: [],
       departamento: [],
@@ -34,37 +39,37 @@ function App() {
       clasificacion: []
     });
     setSearchTerm('');
-    setTableState(prev => ({ ...prev, currentPage: 1 }));
+    setTableState(prev => ({ ...prev, currentPage: 1, sortColumn: null }));
   };
 
   const filteredData = useMemo(() => {
-    let filtered = allData;
+    let filtered = consolidatedData;
 
-    // Apply search filter
+    // Aplicar filtro de búsqueda
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(item =>
         item.codigo.toLowerCase().includes(searchLower) ||
-        item.nombre.toLowerCase().includes(searchLower)
+        item.nombres.some(n => n.toLowerCase().includes(searchLower))
       );
     }
 
-    // Apply faceted filters
+    // Aplicar filtros por facetas
     if (filters.farmacia.length > 0) {
-      filtered = filtered.filter(item => filters.farmacia.includes(item.farmacia));
+        filtered = filtered.filter(item => item.farmacias.some(f => filters.farmacia.includes(f)));
     }
     if (filters.departamento.length > 0) {
-      filtered = filtered.filter(item => filters.departamento.includes(item.departamento));
+        filtered = filtered.filter(item => item.departamentos.some(d => filters.departamento.includes(d)));
     }
     if (filters.marca.length > 0) {
-      filtered = filtered.filter(item => filters.marca.includes(item.marca));
+        filtered = filtered.filter(item => item.marcas.some(m => filters.marca.includes(m)));
     }
     if (filters.clasificacion.length > 0) {
-      filtered = filtered.filter(item => filters.clasificacion.includes(item.clasificacion));
+        filtered = filtered.filter(item => filters.clasificacion.includes(item.clasificacion));
     }
 
     return filtered;
-  }, [allData, searchTerm, filters]);
+  }, [consolidatedData, searchTerm, filters]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,7 +91,7 @@ function App() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* File Upload Section */}
+        {/* Sección de Carga de Archivos */}
         <div className="mb-6">
           <FileUploader
             onFilesProcessed={handleFilesProcessed}
@@ -95,21 +100,21 @@ function App() {
           />
         </div>
 
-        {/* Main Content Area */}
-        {allData.length > 0 && (
+        {/* Área de Contenido Principal */}
+        {consolidatedData.length > 0 && (
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* Left Sidebar - Filters */}
+            {/* Sidebar Izquierdo - Filtros */}
             <div className="lg:flex-shrink-0">
               <FilterPanel
-                data={allData}
+                data={consolidatedData}
                 filters={filters}
                 onFilterChange={setFilters}
               />
             </div>
 
-            {/* Main Content */}
+            {/* Contenido Principal */}
             <div className="flex-1 space-y-6">
-              {/* Search and Summary */}
+              {/* Búsqueda y Resumen */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex-1 max-w-md">
@@ -120,16 +125,20 @@ function App() {
                   </div>
                   
                   <div className="text-sm text-gray-600">
-                    {filteredData.length !== allData.length && (
+                    {filteredData.length !== consolidatedData.length ? (
                       <span>
-                        {filteredData.length.toLocaleString()} de {allData.length.toLocaleString()} productos
+                        Mostrando {filteredData.length.toLocaleString()} de {consolidatedData.length.toLocaleString()} productos consolidados
+                      </span>
+                    ) : (
+                       <span>
+                        {consolidatedData.length.toLocaleString()} productos consolidados
                       </span>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Data Table */}
+              {/* Tabla de Datos */}
               <DataTable
                 data={filteredData}
                 tableState={tableState}
@@ -137,7 +146,7 @@ function App() {
               />
             </div>
 
-            {/* Right Sidebar - Export */}
+            {/* Sidebar Derecho - Exportar */}
             <div className="lg:flex-shrink-0">
               <ExportButtons data={filteredData} />
             </div>
