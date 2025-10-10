@@ -1,37 +1,30 @@
+// src/types/inventory.ts
+
+// Este tipo representa los datos crudos leídos de cada archivo Excel.
 export interface InventoryItem {
   codigo: string;
   nombre: string;
-  existenciaActual: number;
+  existenciaActual: number; // Stock Físico Real
   departamento: string;
   marca: string;
-  cantidad: number;
+  cantidad: number;          // Stock según el Sistema
   promedioDiario: number;
   clasificacion: string;
-  costoUnitario: number;
-  costoUnitarioAnterior?: number;
-  sugerido40d?: number;
-  sugerido45d?: number;
-  sugerido50d?: number;
-  sugerido60d?: number;
-  excesoUnidades?: number;
-  unidadNombre: string;
   farmacia: string;
+  costoUnitario: number;
+  unidadNombre: string;
 }
 
-// --- NUEVA INTERFAZ PARA DATOS CONSOLIDADOS ---
+// Este tipo representa un producto después de consolidar todos los archivos.
 export interface ConsolidatedInventoryItem {
   codigo: string;
   nombres: string[];
-  existenciaActual: number;
+  existenciaActual: number; // Suma de todo el stock FÍSICO REAL
+  cantidad: number;          // Suma de todo el stock DEL SISTEMA
   departamentos: string[];
   marcas: string[];
-  cantidad: number;
   promedioDiario: number;
   clasificacion: string;
-  sugerido40d: number;
-  sugerido45d: number;
-  sugerido50d: number;
-  sugerido60d: number;
   farmacias: string[];
 }
 
@@ -45,7 +38,6 @@ export interface FilterState {
 export interface TableState {
   currentPage: number;
   itemsPerPage: number;
-  // --- ACTUALIZADO PARA USAR LAS NUEVAS PROPIEDADES ---
-  sortColumn: keyof ConsolidatedInventoryItem | null;
+  sortColumn: keyof ConsolidatedInventoryItem | 'sugerido' | null;
   sortDirection: 'asc' | 'desc';
 }
