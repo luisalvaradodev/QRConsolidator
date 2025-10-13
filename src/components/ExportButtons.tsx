@@ -13,18 +13,18 @@ interface ExportButtonsProps {
  * 1. Hoja 'Consolidado': Contiene los datos agrupados por producto, incluyendo existencias por farmacia.
  * 2. Hojas por Farmacia: Contienen los datos sin consolidar, específicos de cada farmacia.
  * Se incluyen las nuevas columnas: sugerido30d, sugerido50d, promedio40d, promedio50d y cantidad.
+ * La columna 'Farmacia' ahora se coloca al final.
  */
 const exportToExcel = (consolidatedData: ConsolidatedInventoryItem[], rawData: InventoryItem[], filename: string) => {
-  // Hoja 1: Datos consolidados (alineados con las columnas de DataTable)
+  // Hoja 1: Datos consolidados (Farmacia al final de las columnas estáticas)
   const consolidatedForExport = consolidatedData.map(item => ({
     'Código': item.codigo,
     'Nombre del producto': item.nombres.join(', '),
     'Marca': item.marcas.join(', '),
     'Departamento': item.departamentos.join(', '),
     'Existencia Actual': item.existenciaActual,
-    // Nueva columna: Cantidad vendida en 60 días
-    'Cantidad Vendida 60 días': item.cantidad,
-    'Farmacia': item.farmacias.join(', '),
+    // Columna añadida
+    'Cant. Vendida 60 días': item.cantidad,
     'Clasificación': item.clasificacion,
     // Nuevas columnas de sugeridos
     'Sugerido 30 días': item.sugerido30d,
@@ -36,13 +36,18 @@ const exportToExcel = (consolidatedData: ConsolidatedInventoryItem[], rawData: I
     'Promedio Ventas 40 días': item.promedio40d.toFixed(2),
     'Promedio Ventas 50 días': item.promedio50d.toFixed(2),
     'Promedio Ventas 60 días': item.promedio60d.toFixed(2),
+    
+    // --- CAMBIO: Farmacia movida al final de las columnas estáticas ---
+    'Farmacia': item.farmacias.join(', '),
+    // -------------------------------------------------------------------
+
     ...Object.keys(item.existenciasPorFarmacia).reduce((acc, farmacia) => {
       acc[`Existencia ${farmacia}`] = item.existenciasPorFarmacia[farmacia];
       return acc;
     }, {} as { [key: string]: number })
   }));
 
-  // Hojas 2+: Datos por farmacia (asume que InventoryItem incluye los campos sugeridos y promedios)
+  // Hojas 2+: Datos por farmacia (Farmacia al final de las columnas estáticas)
   const farmaciaGroups = rawData.reduce((groups, item) => {
     if (!groups[item.farmacia]) {
       groups[item.farmacia] = [];
@@ -54,8 +59,7 @@ const exportToExcel = (consolidatedData: ConsolidatedInventoryItem[], rawData: I
       'Departamento': item.departamento,
       'Existencia Actual': item.existenciaActual,
       // Nueva columna: Cantidad vendida en 60 días
-      'Cantidad Vendida 60 días': item.cantidad,
-      'Farmacia': item.farmacia,
+      'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
       // Nuevas columnas de sugeridos
       'Sugerido 30 días': item.sugerido30d,
@@ -67,6 +71,10 @@ const exportToExcel = (consolidatedData: ConsolidatedInventoryItem[], rawData: I
       'Promedio Ventas 40 días': item.promedio40d.toFixed(2),
       'Promedio Ventas 50 días': item.promedio50d.toFixed(2),
       'Promedio Ventas 60 días': item.promedio60d.toFixed(2),
+      
+      // --- CAMBIO: Farmacia movida al final ---
+      'Farmacia': item.farmacia,
+      // ----------------------------------------
     });
     return groups;
   }, {} as { [key: string]: any[] });
