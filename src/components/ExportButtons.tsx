@@ -10,41 +10,31 @@ interface ExportButtonsProps {
 
 /**
  * Función que genera un archivo Excel con múltiples hojas:
- * 1. Hoja 'Consolidado': Contiene los datos agrupados por producto, incluyendo existencias por farmacia.
+ * 1. Hoja 'Consolidado': Contiene todos los datos sin consolidar, como una lista completa.
  * 2. Hojas por Farmacia: Contienen los datos sin consolidar, específicos de cada farmacia.
  * Se incluyen las nuevas columnas: sugerido30d, sugerido50d, promedio40d, promedio50d y cantidad.
  * La columna 'Farmacia' ahora se coloca al final.
  */
-const exportToExcel = (consolidatedData: ConsolidatedInventoryItem[], rawData: InventoryItem[], filename: string) => {
-  // Hoja 1: Datos consolidados (Farmacia al final de las columnas estáticas)
-  const consolidatedForExport = consolidatedData.map(item => ({
+const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: InventoryItem[], filename: string) => {
+  // Hoja 1: Datos no consolidados (todos los productos por farmacia, en una lista)
+  const allDataForExport = rawData.map(item => ({
     'Código': item.codigo,
-    'Nombre del producto': item.nombres.join(', '),
-    'Marca': item.marcas.join(', '),
-    'Departamento': item.departamentos.join(', '),
+    'Nombre del producto': item.nombre,
+    'Marca': item.marca,
+    'Departamento': item.departamento,
     'Existencia Actual': item.existenciaActual,
-    // Columna añadida
     'Cant. Vendida 60 días': item.cantidad,
     'Clasificación': item.clasificacion,
-    // Nuevas columnas de sugeridos
     'Sugerido 30 días': item.sugerido30d,
     'Sugerido 40 días': item.sugerido40d,
     'Sugerido 50 días': item.sugerido50d,
     'Sugerido 60 días': item.sugerido60d,
-    // Nuevas columnas de promedios
-    'Promedio Ventas 30 días': item.promedio30d.toFixed(2),
-    'Promedio Ventas 40 días': item.promedio40d.toFixed(2),
-    'Promedio Ventas 50 días': item.promedio50d.toFixed(2),
-    'Promedio Ventas 60 días': item.promedio60d.toFixed(2),
-    
-    // --- CAMBIO: Farmacia movida al final de las columnas estáticas ---
-    'Farmacia': item.farmacias.join(', '),
-    // -------------------------------------------------------------------
-
-    ...Object.keys(item.existenciasPorFarmacia).reduce((acc, farmacia) => {
-      acc[`Existencia ${farmacia}`] = item.existenciasPorFarmacia[farmacia];
-      return acc;
-    }, {} as { [key: string]: number })
+    // Se redondea a 1 decimal
+    'Promedio Ventas 30 días': item.promedio30d.toFixed(1),
+    'Promedio Ventas 40 días': item.promedio40d.toFixed(1),
+    'Promedio Ventas 50 días': item.promedio50d.toFixed(1),
+    'Promedio Ventas 60 días': item.promedio60d.toFixed(1),
+    'Farmacia': item.farmacia,
   }));
 
   // Hojas 2+: Datos por farmacia (Farmacia al final de las columnas estáticas)
@@ -58,34 +48,27 @@ const exportToExcel = (consolidatedData: ConsolidatedInventoryItem[], rawData: I
       'Marca': item.marca,
       'Departamento': item.departamento,
       'Existencia Actual': item.existenciaActual,
-      // Nueva columna: Cantidad vendida en 60 días
       'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
-      // Nuevas columnas de sugeridos
       'Sugerido 30 días': item.sugerido30d,
       'Sugerido 40 días': item.sugerido40d,
       'Sugerido 50 días': item.sugerido50d,
       'Sugerido 60 días': item.sugerido60d,
-      // Nuevas columnas de promedios
-      'Promedio Ventas 30 días': item.promedio30d.toFixed(2),
-      'Promedio Ventas 40 días': item.promedio40d.toFixed(2),
-      'Promedio Ventas 50 días': item.promedio50d.toFixed(2),
-      'Promedio Ventas 60 días': item.promedio60d.toFixed(2),
-      
-      // --- CAMBIO: Farmacia movida al final ---
+      // Se redondea a 1 decimal
+      'Promedio Ventas 30 días': item.promedio30d.toFixed(1),
+      'Promedio Ventas 40 días': item.promedio40d.toFixed(1),
+      'Promedio Ventas 50 días': item.promedio50d.toFixed(1),
+      'Promedio Ventas 60 días': item.promedio60d.toFixed(1),
       'Farmacia': item.farmacia,
-      // ----------------------------------------
     });
     return groups;
   }, {} as { [key: string]: any[] });
 
   const workbook = XLSX.utils.book_new();
-  
-  // Agregar hoja consolidada
-  const consolidatedSheet = XLSX.utils.json_to_sheet(consolidatedForExport);
+
+  const consolidatedSheet = XLSX.utils.json_to_sheet(allDataForExport);
   XLSX.utils.book_append_sheet(workbook, consolidatedSheet, 'Consolidado');
-  
-  // Agregar hojas por farmacia
+
   Object.entries(farmaciaGroups).forEach(([farmacia, data]) => {
     const sheet = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(workbook, sheet, farmacia);
@@ -119,7 +102,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, rawData }) => {
         <h3 className="font-semibold text-gray-100">Exportar</h3>
       </div>
       <p className="text-sm text-gray-400 mb-4">
-        {data.length.toLocaleString()} productos consolidados.
+        {rawData.length.toLocaleString()} productos totales.
       </p>
       <div className="space-y-3">
         <button
