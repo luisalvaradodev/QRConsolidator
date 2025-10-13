@@ -1,76 +1,182 @@
 import * as XLSX from 'xlsx';
 import { InventoryItem } from '../types/inventory';
 
-const COLUMN_MAPPINGS: { [key: string]: string } = {
-  'código': 'codigo', 'codigo': 'codigo',
-  'nombre': 'nombre',
-  'existencia actual': 'existenciaActual',
-  'departamento': 'departamento', 'dpto. descrip.': 'departamento',
-  'marca': 'marca',
-  'cantidad': 'cantidad',
-  'promedio diario': 'promedioDiario',
-  'sugerido 40d': 'sugerido40d',
-  'sugerido 45d': 'sugerido45d',
-  'sugerido 50d': 'sugerido50d',
-  'sugerido 60d': 'sugerido60d',
-  'exceso unidades': 'excesoUnidades',
+// Helper para normalizar los encabezados de las columnas para un acceso consistente
+const normalizeHeader = (h: string): string => h ? h.toLowerCase().trim().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/\./g, '').replace(/\s+/g, '') : '';
+
+// Helper para normalizar las claves de un objeto de datos
+const normalizeObjectKeys = (obj: any): any => {
+    const newObj: any = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const normalizedKey = normalizeHeader(key);
+            if (normalizedKey === 'código' || normalizedKey === 'codigo') newObj.codigo = obj[key];
+            else if (normalizedKey === 'nombre') newObj.nombre = obj[key];
+            else if (normalizedKey === 'existenciaactual' || normalizedKey === 'existencia') newObj.existenciaActual = obj[key];
+            else if (normalizedKey === 'departamento' || normalizedKey === 'dptodescrip') newObj.departamento = obj[key];
+            else if (normalizedKey === 'marca') newObj.marca = obj[key];
+            else if (normalizedKey === 'ventas60d' || normalizedKey === 'cantidad') newObj.ventas60d = obj[key];
+            else newObj[normalizedKey] = obj[key];
+        }
+    }
+    return newObj;
 };
 
-const normalizeHeader = (h: string) => h ? h.toLowerCase().trim().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u') : '';
+// Lógica de cálculo principal para los datos de una farmacia
+const calculateInventoryMetrics = (
+    rawProducts: any[],
+    rawSales: any[],
+    farmaciaName: string
+): InventoryItem[] => {
+    const products = rawProducts.map(normalizeObjectKeys);
+    const sales = rawSales.map(normalizeObjectKeys);
 
-const normalizeData = (data: any[], farmaciaName: string): InventoryItem[] => {
-  if (!data || data.length === 0) return [];
-  const headers = Object.keys(data[0]);
-  const mappedHeaders: { [key: string]: string } = {};
-
-  headers.forEach(header => {
-    const normalized = normalizeHeader(header);
-    const mappedKey = COLUMN_MAPPINGS[normalized];
-    if (mappedKey) mappedHeaders[header] = mappedKey;
-  });
-
-  return data.map(row => {
-    const normalizedRow: any = {};
-    Object.entries(row).forEach(([key, value]) => {
-      const mappedKey = mappedHeaders[key];
-      if (mappedKey) normalizedRow[mappedKey] = value;
+    const salesMap = new Map<string, number>();
+    sales.forEach(item => {
+        const sales60d = Number(item.ventas60d) || 0;
+        if (item.codigo) {
+            const codigoStr = String(item.codigo);
+            salesMap.set(codigoStr, (salesMap.get(codigoStr) || 0) + sales60d);
+        }
+    });
+    
+    const departmentKeywords = new Map<string, Set<string>>();
+    products.forEach(p => {
+        const departamento = p.departamento || '';
+        if (departamento && p.nombre && departamento.toLowerCase() !== 'sin depto.') {
+            if(!departmentKeywords.has(departamento)) departmentKeywords.set(departamento, new Set());
+            const words = String(p.nombre).toLowerCase().match(/\b(\w{4,})\b/g) || [];
+            words.forEach(word => departmentKeywords.get(departamento)!.add(word));
+        }
     });
 
-    return {
-      codigo: String(normalizedRow.codigo || ''),
-      nombre: String(normalizedRow.nombre || ''),
-      existenciaActual: Number(normalizedRow.existenciaActual) || 0,
-      departamento: String(normalizedRow.departamento || 'Sin Depto.'),
-      marca: String(normalizedRow.marca || 'Sin Marca'),
-      cantidad: Number(normalizedRow.cantidad) || 0,
-      promedioDiario: Number(normalizedRow.promedioDiario) || 0,
-      sugerido40d: Number(normalizedRow.sugerido40d) || 0,
-      sugerido45d: Number(normalizedRow.sugerido45d) || 0,
-      sugerido50d: Number(normalizedRow.sugerido50d) || 0,
-      sugerido60d: Number(normalizedRow.sugerido60d) || 0,
-      excesoUnidades: Number(normalizedRow.excesoUnidades) || 0,
-      farmacia: farmaciaName,
-    };
-  }).filter(item => item.codigo);
+    const inferDepartment = (productName: string): string => {
+        let bestMatch = 'Sin Depto.';
+        let maxScore = 0;
+        const lowerProductName = String(productName).toLowerCase();
+        
+        departmentKeywords.forEach((keywords, dept) => {
+            let score = 0;
+            keywords.forEach(kw => {
+                if(lowerProductName.includes(kw)) score++;
+            });
+            if (score > maxScore) {
+                maxScore = score;
+                bestMatch = dept;
+            }
+        });
+        return bestMatch;
+    }
+
+    return products
+        .filter(p => p.nombre && !String(p.nombre).toUpperCase().includes('COD01'))
+        .map(p => {
+            const codigo = String(p.codigo || '');
+            const existenciaActual = Number(p.existenciaActual) || 0;
+            const cantidad = salesMap.get(codigo) || 0;
+            const promedioDiario = cantidad / 60;
+            const diasDeVenta = promedioDiario > 0 ? existenciaActual / promedioDiario : Infinity;
+
+            let clasificacion = 'OK';
+            let excesoUnidades = 0;
+
+            if (cantidad > 0) {
+                if (diasDeVenta < 20) clasificacion = 'Falla';
+                else if (diasDeVenta > 60) {
+                    clasificacion = 'Exceso';
+                    excesoUnidades = Math.ceil(existenciaActual - (promedioDiario * 60));
+                }
+            } else {
+                if (existenciaActual > 0) clasificacion = 'No vendido';
+            }
+
+            if (clasificacion === 'No vendido') {
+                excesoUnidades = existenciaActual;
+            }
+            
+            const calculateSugerido = (days: number): number => {
+                const required = promedioDiario * days;
+                const suggestion = required - existenciaActual;
+                if (clasificacion === 'Falla' || (clasificacion === 'OK' && suggestion > 0)) {
+                    return Math.max(0, Math.ceil(suggestion));
+                }
+                return 0;
+            };
+            
+            let departamento = p.departamento || '';
+            if (!departamento || departamento.toLowerCase().includes('sin depto')) {
+                departamento = inferDepartment(p.nombre);
+            }
+
+            return {
+                codigo,
+                nombre: String(p.nombre || ''),
+                existenciaActual: Math.ceil(existenciaActual),
+                departamento: departamento || 'Sin Depto.',
+                marca: String(p.marca || 'Sin Marca'),
+                cantidad,
+                promedioDiario,
+                clasificacion,
+                sugerido40d: calculateSugerido(40),
+                sugerido45d: calculateSugerido(45),
+                sugerido50d: calculateSugerido(50),
+                sugerido60d: calculateSugerido(60),
+                excesoUnidades: Math.max(0, Math.ceil(excesoUnidades)),
+                farmacia: farmaciaName,
+            };
+        });
 };
 
-export const processFile = async (file: File): Promise<InventoryItem[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const fileData = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(fileData, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        const farmaciaName = file.name.replace(/\.(xlsx|xls|csv)$/i, '').replace(/_/g, ' ').replace(/-/g, ' ');
-        resolve(normalizeData(jsonData, farmaciaName));
-      } catch (error) {
-        reject(error);
-      }
+
+const readFile = (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                resolve(XLSX.utils.sheet_to_json(sheet));
+            } catch (err) { reject(err); }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsArrayBuffer(file);
+    });
+};
+
+// Función principal exportada para ser llamada desde la UI
+export const processFile = async (files: File[]): Promise<InventoryItem[]> => {
+    const getPharmacyKey = (name: string): string => {
+        const lowerName = name.toLowerCase();
+        if (lowerName.includes('q1')) return 'Q1';
+        if (lowerName.includes('q2')) return 'Q2';
+        if (lowerName.includes('fa') || lowerName.includes('farmanaco')) return 'Farmanaco';
+        return 'unknown';
     };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file);
-  });
+
+    const fileMap = new Map<string, { productsFile?: File, salesFile?: File }>();
+
+    for (const file of files) {
+        const key = getPharmacyKey(file.name);
+        if (key === 'unknown') continue;
+        if (!fileMap.has(key)) fileMap.set(key, {});
+
+        const entry = fileMap.get(key)!;
+        if (file.name.toLowerCase().includes('listado')) entry.productsFile = file;
+        else if (file.name.toLowerCase().includes('vendidos')) entry.salesFile = file;
+    }
+    
+    let allProcessedData: InventoryItem[] = [];
+
+    for (const [farmacyName, filePair] of fileMap.entries()) {
+        if (!filePair.productsFile) continue;
+
+        const productsData = await readFile(filePair.productsFile);
+        const salesData = filePair.salesFile ? await readFile(filePair.salesFile) : [];
+
+        const pharmacyResult = calculateInventoryMetrics(productsData, salesData, farmacyName);
+        allProcessedData = allProcessedData.concat(pharmacyResult);
+    }
+    
+    return allProcessedData;
 };

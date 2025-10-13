@@ -5,8 +5,9 @@ export interface InventoryItem {
   existenciaActual: number;
   departamento: string;
   marca: string;
-  cantidad: number;
+  cantidad: number; // Representa ventas en 60d
   promedioDiario: number;
+  clasificacion: string; // Columna añadida para la clasificación
   sugerido40d: number;
   sugerido45d: number;
   sugerido50d: number;
