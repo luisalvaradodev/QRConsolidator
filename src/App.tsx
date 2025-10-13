@@ -1,14 +1,13 @@
-// src/App.tsx
-
 import { useState, useMemo, useEffect } from 'react';
-import { Activity, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react'; // Ya no se necesita Activity
 import FileUploader from './components/FileUploader';
 import FilterPanel from './components/FilterPanel';
 import SearchBar from './components/SearchBar';
 import DataTable from './components/DataTable';
 import ExportButtons from './components/ExportButtons';
 import MetricsDashboard from './components/MetricsDashboard';
-import { InventoryItem, ConsolidatedInventoryItem, FilterState, TableState } from './types/inventory';
+import ClassificationSettings from './components/ClassificationSettings';
+import { InventoryItem, ConsolidatedInventoryItem, FilterState, TableState, ClassificationSettings as ClassificationSettingsType } from './types/inventory';
 import { consolidateData } from './utils/consolidationLogic';
 
 function App() {
@@ -18,8 +17,12 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterState>({ farmacia: [], departamento: [], marca: [], clasificacion: [] });
   const [tableState, setTableState] = useState<TableState>({ currentPage: 1, itemsPerPage: 50, sortColumn: null, sortDirection: 'asc' });
+  const [classificationSettings, setClassificationSettings] = useState<ClassificationSettingsType>({
+    diasFalla: 20,
+    diasExceso: 60,
+    diasOK: { min: 20, max: 60 }
+  });
   
-  // Lógica del modo oscuro
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const storedTheme = localStorage.getItem('theme');
@@ -28,29 +31,32 @@ function App() {
       }
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-    return false;
+    return true;
   });
 
   useEffect(() => {
     const root = window.document.documentElement;
-    if (isDarkMode) {
-      root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
+    root.classList.add('dark');
+    localStorage.setItem('theme', 'dark');
   }, [isDarkMode]);
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   const handleFilesProcessed = (processedRawData: InventoryItem[]) => {
-    const finalConsolidatedData = consolidateData(processedRawData);
+    const finalConsolidatedData = consolidateData(processedRawData, classificationSettings);
     setRawData(processedRawData);
     setConsolidatedData(finalConsolidatedData);
     setFilters({ farmacia: [], departamento: [], marca: [], clasificacion: [] });
     setSearchTerm('');
     setTableState({ currentPage: 1, itemsPerPage: 50, sortColumn: 'clasificacion', sortDirection: 'asc' });
+  };
+
+  const handleSettingsChange = (newSettings: ClassificationSettingsType) => {
+    setClassificationSettings(newSettings);
+    if (rawData.length > 0) {
+      const reprocessedData = consolidateData(rawData, newSettings);
+      setConsolidatedData(reprocessedData);
+    }
   };
 
   const dataToDisplay = useMemo(() => {
@@ -67,10 +73,11 @@ function App() {
           departamentos: [item.departamento],
           marcas: [item.marca],
           farmacias: [item.farmacia],
+          existenciasPorFarmacia: { [item.farmacia]: item.existenciaActual },
         }));
     } else if (selectedFarmacies.length > 1) {
       const filteredRawData = rawData.filter(item => selectedFarmacies.includes(item.farmacia));
-      baseData = consolidateData(filteredRawData);
+      baseData = consolidateData(filteredRawData, classificationSettings);
     } else {
       baseData = consolidatedData;
     }
@@ -87,59 +94,80 @@ function App() {
 
     return filtered;
 
-  }, [consolidatedData, rawData, searchTerm, filters]);
+  }, [consolidatedData, rawData, searchTerm, filters, classificationSettings]);
 
   useMemo(() => {
     setTableState(prev => ({ ...prev, currentPage: 1 }));
   }, [searchTerm, filters, tableState.itemsPerPage]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
-      <header className="bg-white/80 dark:bg-gray-800/80 shadow-sm border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm sticky top-0 z-10 transition-colors duration-300">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Activity className="h-8 w-8 text-blue-600 dark:text-blue-500" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Consolidador de Inventarios</h1>
-                <p className="text-gray-600 dark:text-gray-400">Análisis y consolidación de inventarios farmacéuticos</p>
-              </div>
-            </div>
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-all"
-              aria-label="Toggle theme"
-            >
-              {isDarkMode ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
-            </button>
-          </div>
-        </div>
-      </header>
-      
-      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-            <FileUploader onFilesProcessed={handleFilesProcessed} isProcessing={isProcessing} setIsProcessing={setIsProcessing} />
-        </div>
+    <div className="min-h-screen bg-black text-gray-100">
+      <header className="bg-gray-900 border-b border-blue-500/30 backdrop-blur-sm sticky top-0 z-10">
+  <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-4">
         
+        {/* --- INICIO DE CAMBIOS --- */}
+        
+        <img 
+          src="/q.jpeg" 
+          alt="Logo Quirófanos Farmacias" 
+          className="h-14 w-14 rounded-full object-cover border-2 border-blue-500" // Clases modificadas
+        />
+        
+        <div>
+          <h1 className="text-xl font-bold text-white">Quirófanos Farmacias</h1>
+          <p className="text-sm text-gray-400">Análisis y consolidación farmacéutica</p>
+        </div>
+
+        {/* --- FIN DE CAMBIOS --- */}
+
+      </div>
+      <button
+        onClick={toggleTheme}
+        className="p-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+      >
+        {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
+    </div>
+  </div>
+</header>
+      
+      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        {/* ... el resto del código no cambia ... */}
+        <div className="space-y-4">
+          <FileUploader 
+            onFilesProcessed={handleFilesProcessed} 
+            isProcessing={isProcessing} 
+            setIsProcessing={setIsProcessing}
+            classificationSettings={classificationSettings}
+          />
+          
+          <ClassificationSettings 
+            settings={classificationSettings}
+            onSettingsChange={handleSettingsChange}
+          />
+        </div>
+
         {consolidatedData.length > 0 && (
-          <div className="flex flex-col lg:flex-row gap-6">
-            <aside className="lg:w-80 lg:flex-shrink-0">
+          <div className="mt-6 grid grid-cols-12 gap-4">
+            <aside className="col-span-12 lg:col-span-3">
               <FilterPanel data={consolidatedData} filters={filters} onFilterChange={setFilters} />
             </aside>
             
-            <div className="flex-1 space-y-6 min-w-0">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 transition-colors duration-300">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div className="flex-1 max-w-lg">
+            <div className="col-span-12 lg:col-span-7 space-y-4">
+              <div className="bg-gray-900 border border-blue-500/30 rounded-xl p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <div className="flex-1 max-w-md">
                     <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">
-                    {dataToDisplay.length.toLocaleString()} resultados
+                  <div className="text-sm text-gray-400 font-medium whitespace-nowrap">
+                    {dataToDisplay.length.toLocaleString()} productos
                   </div>
                 </div>
+                
+                <MetricsDashboard data={dataToDisplay} />
               </div>
-              
-              <MetricsDashboard data={dataToDisplay} />
 
               <DataTable
                 data={dataToDisplay}
@@ -148,8 +176,8 @@ function App() {
               />
             </div>
             
-            <aside className="lg:w-64 lg:flex-shrink-0">
-              <ExportButtons data={dataToDisplay} />
+            <aside className="col-span-12 lg:col-span-2">
+              <ExportButtons data={dataToDisplay} rawData={rawData} />
             </aside>
           </div>
         )}

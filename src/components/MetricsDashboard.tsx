@@ -1,5 +1,3 @@
-// src/components/MetricsDashboard.tsx
-
 import React, { useMemo } from 'react';
 import { Package, AlertCircle, TrendingDown, PackageX, List } from 'lucide-react';
 import { ConsolidatedInventoryItem } from '../types/inventory';
@@ -15,13 +13,12 @@ interface MetricCardProps {
   iconColor: string;
 }
 
-// Componente de tarjeta modificado para ser más compacto
 const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon: Icon, iconColor }) => (
-  <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-3 flex-1 min-w-[160px] transition-colors duration-300">
-    <Icon className={`h-6 w-6 ${iconColor}`} />
+  <div className="bg-gray-800 border border-gray-700 p-3 rounded-lg flex items-center gap-3 flex-1 min-w-[140px]">
+    <Icon className={`h-5 w-5 ${iconColor}`} />
     <div>
-      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">{title}</p>
-      <p className="text-lg font-bold text-gray-800 dark:text-gray-100">{value.toLocaleString()}</p>
+      <p className="text-xs text-gray-400 font-medium truncate">{title}</p>
+      <p className="text-lg font-bold text-gray-100">{value.toLocaleString()}</p>
     </div>
   </div>
 );
@@ -48,13 +45,12 @@ const MetricsDashboard: React.FC<MetricsDashboardProps> = ({ data }) => {
   }, [data]);
 
   return (
-    // Contenedor modificado para un mejor ajuste, sin título h2
-    <div className="flex flex-wrap gap-3">
-      <MetricCard title="Total Productos" value={metrics.totalProductos} icon={List} iconColor="text-blue-500" />
-      <MetricCard title="Unidades en Stock" value={metrics.totalExistencia} icon={Package} iconColor="text-green-500" />
-      <MetricCard title="Productos en Falla" value={metrics.productosEnFalla} icon={AlertCircle} iconColor="text-red-500" />
-      <MetricCard title="Prods. en Exceso" value={metrics.productosEnExceso} icon={TrendingDown} iconColor="text-yellow-500" />
-      <MetricCard title="Prods. No Vendidos" value={metrics.productosNoVendidos} icon={PackageX} iconColor="text-gray-500" />
+    <div className="flex flex-wrap gap-2">
+      <MetricCard title="Total Productos" value={metrics.totalProductos} icon={List} iconColor="text-blue-400" />
+      <MetricCard title="Stock Total" value={metrics.totalExistencia} icon={Package} iconColor="text-green-400" />
+      <MetricCard title="Fallas" value={metrics.productosEnFalla} icon={AlertCircle} iconColor="text-red-400" />
+      <MetricCard title="Excesos" value={metrics.productosEnExceso} icon={TrendingDown} iconColor="text-yellow-400" />
+      <MetricCard title="No Vendidos" value={metrics.productosNoVendidos} icon={PackageX} iconColor="text-gray-400" />
     </div>
   );
 };

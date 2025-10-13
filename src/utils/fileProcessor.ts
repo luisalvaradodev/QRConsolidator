@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { InventoryItem } from '../types/inventory';
+import { InventoryItem, ClassificationSettings } from '../types/inventory';
 
 // Helper para normalizar los encabezados de las columnas para un acceso consistente
 const normalizeHeader = (h: string): string => h ? h.toLowerCase().trim().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/\./g, '').replace(/\s+/g, '') : '';
@@ -26,7 +26,8 @@ const normalizeObjectKeys = (obj: any): any => {
 const calculateInventoryMetrics = (
     rawProducts: any[],
     rawSales: any[],
-    farmaciaName: string
+    farmaciaName: string,
+    settings: ClassificationSettings
 ): InventoryItem[] => {
     const products = rawProducts.map(normalizeObjectKeys);
     const sales = rawSales.map(normalizeObjectKeys);
@@ -69,22 +70,34 @@ const calculateInventoryMetrics = (
     }
 
     return products
-        .filter(p => p.nombre && !String(p.nombre).toUpperCase().includes('COD01'))
+        // Se ha ELIMINADO la línea de filtro que buscaba 'COD01' en el nombre del producto.
+        .filter(p => p.nombre)
         .map(p => {
             const codigo = String(p.codigo || '');
             const existenciaActual = Number(p.existenciaActual) || 0;
-            const cantidad = salesMap.get(codigo) || 0;
+            const cantidad = salesMap.get(codigo) || 0; // Ventas totales en 60 días
+            
+            // --- INICIO DE CAMBIOS ---
+            // CORRECCIÓN: Calcular el promedio diario primero.
             const promedioDiario = cantidad / 60;
+
+            // CORRECCIÓN: Calcular las ventas totales para cada período.
+            const ventas30d = promedioDiario * 30;
+            const ventas40d = promedioDiario * 40;
+            const ventas50d = promedioDiario * 50;
+            // El promedio de 60d es simplemente el total de ventas en 60 días.
+
             const diasDeVenta = promedioDiario > 0 ? existenciaActual / promedioDiario : Infinity;
+            // --- FIN DE CAMBIOS ---
 
             let clasificacion = 'OK';
             let excesoUnidades = 0;
 
             if (cantidad > 0) {
-                if (diasDeVenta < 20) clasificacion = 'Falla';
-                else if (diasDeVenta > 60) {
+                if (diasDeVenta < settings.diasFalla) clasificacion = 'Falla';
+                else if (diasDeVenta > settings.diasExceso) {
                     clasificacion = 'Exceso';
-                    excesoUnidades = Math.ceil(existenciaActual - (promedioDiario * 60));
+                    excesoUnidades = Math.ceil(existenciaActual - (promedioDiario * settings.diasExceso));
                 }
             } else {
                 if (existenciaActual > 0) clasificacion = 'No vendido';
@@ -114,11 +127,18 @@ const calculateInventoryMetrics = (
                 existenciaActual: Math.ceil(existenciaActual),
                 departamento: departamento || 'Sin Depto.',
                 marca: String(p.marca || 'Sin Marca'),
-                cantidad,
-                promedioDiario,
+                cantidad, // Se mantiene como el total de ventas en 60 días
+                // --- INICIO DE CAMBIOS ---
+                // CORRECCIÓN: Asignamos los valores correctos de ventas por período.
+                // El "promedio" que pediste es en realidad el total de ventas en ese período.
+                promedio30d: ventas30d,
+                promedio40d: ventas40d,
+                promedio50d: ventas50d,
+                promedio60d: cantidad, // El "promedio" de 60 días son las ventas totales de 60 días
+                // --- FIN DE CAMBIOS ---
                 clasificacion,
+                sugerido30d: calculateSugerido(30),
                 sugerido40d: calculateSugerido(40),
-                sugerido45d: calculateSugerido(45),
                 sugerido50d: calculateSugerido(50),
                 sugerido60d: calculateSugerido(60),
                 excesoUnidades: Math.max(0, Math.ceil(excesoUnidades)),
@@ -126,7 +146,6 @@ const calculateInventoryMetrics = (
             };
         });
 };
-
 
 const readFile = (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
@@ -145,7 +164,7 @@ const readFile = (file: File): Promise<any[]> => {
 };
 
 // Función principal exportada para ser llamada desde la UI
-export const processFile = async (files: File[]): Promise<InventoryItem[]> => {
+export const processFile = async (files: File[], settings: ClassificationSettings): Promise<InventoryItem[]> => {
     const getPharmacyKey = (name: string): string => {
         const lowerName = name.toLowerCase();
         if (lowerName.includes('q1')) return 'Q1';
@@ -174,7 +193,7 @@ export const processFile = async (files: File[]): Promise<InventoryItem[]> => {
         const productsData = await readFile(filePair.productsFile);
         const salesData = filePair.salesFile ? await readFile(filePair.salesFile) : [];
 
-        const pharmacyResult = calculateInventoryMetrics(productsData, salesData, farmacyName);
+        const pharmacyResult = calculateInventoryMetrics(productsData, salesData, farmacyName, settings);
         allProcessedData = allProcessedData.concat(pharmacyResult);
     }
     
