@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, Save, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Save, RotateCcw } from 'lucide-react';
 import { ClassificationSettings } from '../types/inventory';
 
 interface ClassificationSettingsProps {
@@ -8,7 +8,6 @@ interface ClassificationSettingsProps {
 }
 
 const ClassificationSettingsComponent: React.FC<ClassificationSettingsProps> = ({ settings, onSettingsChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [localSettings, setLocalSettings] = useState<ClassificationSettings>(settings);
 
   // Sincroniza el estado local si las props externas cambian
@@ -16,21 +15,23 @@ const ClassificationSettingsComponent: React.FC<ClassificationSettingsProps> = (
     setLocalSettings(settings);
   }, [settings]);
 
+  // Comprueba si hay cambios sin guardar para activar el botón
+  const hasChanges = useMemo(() => {
+    return JSON.stringify(localSettings) !== JSON.stringify(settings);
+  }, [localSettings, settings]);
+
   const handleSave = () => {
-    // Valida que el mínimo no sea mayor que el máximo
     if (localSettings.diasFalla >= localSettings.diasExceso) {
       alert('"Días para Falla" debe ser menor que "Días para Exceso".');
       return;
     }
     
-    // Actualiza el rango OK automáticamente antes de guardar
+    // El rango OK se deriva de los otros dos valores
     const newSettings = {
         ...localSettings,
         diasOK: { min: localSettings.diasFalla, max: localSettings.diasExceso }
     };
-
     onSettingsChange(newSettings);
-    setIsOpen(false);
   };
 
   const handleReset = () => {
@@ -40,105 +41,84 @@ const ClassificationSettingsComponent: React.FC<ClassificationSettingsProps> = (
       diasOK: { min: 20, max: 60 }
     };
     setLocalSettings(defaultSettings);
+    // Opcional: podrías guardar directamente al restaurar
+    // onSettingsChange(defaultSettings); 
   };
+  
+  // Componente interno para cada fila de ajuste
+  const SettingRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+    <div className="grid grid-cols-2 items-center gap-3">
+      <label className="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 
   return (
-    // Contenedor principal
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-blue-500/30 rounded-xl shadow-sm p-4">
-      {/* Botón para desplegar/contraer */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
-      >
-        <div className="flex items-center space-x-2">
-          <Settings className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-          <span className="font-medium text-gray-800 dark:text-gray-100">Configuración de Clasificación</span>
+    // El contenedor principal ya no necesita ser una "tarjeta" completa, 
+    // ya que se anida dentro de un panel en App.tsx.
+    <div className="space-y-4">
+      
+      {/* --- Campo: Días para Falla --- */}
+      <SettingRow label="Días de Falla">
+        <input
+          type="number"
+          value={localSettings.diasFalla}
+          onChange={(e) => setLocalSettings({ 
+            ...localSettings, 
+            diasFalla: parseInt(e.target.value, 10) || 0 
+          })}
+          className="w-full px-2 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+          min="1"
+          max="365"
+        />
+      </SettingRow>
+
+      {/* --- Campo: Días para Exceso --- */}
+      <SettingRow label="Días de Exceso">
+        <input
+          type="number"
+          value={localSettings.diasExceso}
+          onChange={(e) => setLocalSettings({ 
+            ...localSettings, 
+            diasExceso: parseInt(e.target.value, 10) || 0 
+          })}
+          className="w-full px-2 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+          min="1"
+          max="365"
+        />
+      </SettingRow>
+
+      {/* --- Campo: Rango OK (calculado) --- */}
+      <SettingRow label="Rango Óptimo">
+        <div className="text-sm text-center font-mono text-slate-700 dark:text-slate-300 px-2 py-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-md">
+          {localSettings.diasFalla} - {localSettings.diasExceso} días
         </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          Falla: {settings.diasFalla}d | Exceso: {settings.diasExceso}d
-        </div>
-      </button>
+      </SettingRow>
 
-      {/* Panel de configuración desplegable */}
-      {isOpen && (
-        <div className="mt-4 space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            
-            {/* Campo: Días para Falla */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Días para Falla
-              </label>
-              <input
-                type="number"
-                value={localSettings.diasFalla}
-                onChange={(e) => setLocalSettings({ 
-                  ...localSettings, 
-                  diasFalla: parseInt(e.target.value) || 0 
-                })}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                min="1"
-                max="365"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Productos con menos días de inventario.
-              </p>
-            </div>
-
-            {/* Campo: Días para Exceso */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Días para Exceso
-              </label>
-              <input
-                type="number"
-                value={localSettings.diasExceso}
-                onChange={(e) => setLocalSettings({ 
-                  ...localSettings, 
-                  diasExceso: parseInt(e.target.value) || 0 
-                })}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                min="1"
-                max="365"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Productos con más días de inventario.
-              </p>
-            </div>
-
-            {/* Campo: Rango OK (calculado) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Rango OK
-              </label>
-              <div className="text-sm text-gray-700 dark:text-gray-400 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-center">
-                Entre {localSettings.diasFalla} y {localSettings.diasExceso} días
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Calculado automáticamente.
-              </p>
-            </div>
-          </div>
-
-          {/* Botones de acción */}
-          <div className="flex justify-end space-x-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleReset}
-              className="flex items-center space-x-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span>Restaurar</span>
-            </button>
-            <button
-              onClick={handleSave}
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200"
-            >
-              <Save className="h-4 w-4" />
-              <span>Aplicar</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* --- Botones de Acción --- */}
+      <div className="flex justify-end items-center space-x-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+        <button
+          onClick={handleReset}
+          title="Restaurar valores por defecto"
+          className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!hasChanges}
+          className={`flex items-center space-x-2 px-4 py-1.5 text-sm font-semibold rounded-lg transition-all duration-200
+            ${hasChanges 
+              ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700' 
+              : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+            }`}
+        >
+          <Save className="h-4 w-4" />
+          <span>Aplicar</span>
+        </button>
+      </div>
     </div>
   );
 };

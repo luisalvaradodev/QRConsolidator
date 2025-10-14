@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Filter, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import React from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { ChevronDown, Search, XCircle } from 'lucide-react';
 import { FilterState, ConsolidatedInventoryItem } from '../types/inventory';
 
 interface FilterPanelProps {
@@ -8,85 +9,109 @@ interface FilterPanelProps {
   onFilterChange: (filters: FilterState) => void;
 }
 
+// --- SUBCOMPONENTE MEJORADO: FilterSection ---
 interface FilterSectionProps {
   title: string;
   values: string[];
   selected: string[];
   onChange: (selected: string[]) => void;
-  isOpen: boolean;
-  onToggle: () => void;
   countMap: Map<string, number>;
   isSearchable?: boolean;
 }
 
-// Subcomponente para cada sección del filtro
-const FilterSection: React.FC<FilterSectionProps> = ({ title, values, selected, onChange, isOpen, onToggle, countMap, isSearchable = false }) => {
+const FilterSection: React.FC<FilterSectionProps> = ({ title, values, selected, onChange, countMap, isSearchable = false }) => {
+  const [isOpen, setIsOpen] = useState(true); // Secciones abiertas por defecto para mayor accesibilidad
   const [searchTerm, setSearchTerm] = useState('');
-
-  const handleToggle = (value: string) => {
-    onChange(selected.includes(value) ? selected.filter(v => v !== value) : [...selected, value]);
-  };
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
   const filteredValues = useMemo(() => {
-    if (!isSearchable || !searchTerm) {
-      return values;
-    }
-    return values.filter(value =>
-      value.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    if (!isSearchable || !searchTerm) return values;
+    return values.filter(value => value.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [values, searchTerm, isSearchable]);
 
-  const handleSelectAll = () => {
-    const allFilteredSelected = filteredValues.every(v => selected.includes(v));
+  const allFilteredSelected = useMemo(() => {
+    return filteredValues.length > 0 && filteredValues.every(v => selected.includes(v));
+  }, [filteredValues, selected]);
+  
+  const someFilteredSelected = useMemo(() => {
+    return filteredValues.some(v => selected.includes(v)) && !allFilteredSelected;
+  }, [filteredValues, selected, allFilteredSelected]);
+
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = someFilteredSelected;
+    }
+  }, [someFilteredSelected]);
+
+  const handleSelectAllToggle = () => {
     if (allFilteredSelected) {
       onChange(selected.filter(v => !filteredValues.includes(v)));
     } else {
       onChange([...new Set([...selected, ...filteredValues])]);
     }
   };
+  
+  const handleItemToggle = (value: string) => {
+    onChange(selected.includes(value) ? selected.filter(v => v !== value) : [...selected, value]);
+  };
 
   return (
-    // Borde de la sección
-    <div className="border-b border-gray-200 dark:border-gray-800 last:border-b-0">
-      {/* Botón para desplegar */}
-      <button onClick={onToggle} className="w-full flex items-center justify-between p-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
-        <span className="font-medium text-gray-800 dark:text-gray-200">{title}</span>
+    <div className="border-b border-slate-200 dark:border-slate-800 last:border-b-0">
+      <button onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between p-3 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors">
+        <span className="font-semibold text-slate-800 dark:text-slate-200">{title}</span>
         <div className="flex items-center space-x-2">
-          {selected.length > 0 && <span className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 text-xs px-2 py-1 rounded-full border border-blue-300 dark:border-blue-500/50">{selected.length}</span>}
-          {isOpen ? <ChevronUp className="h-4 w-4 text-gray-500 dark:text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />}
+          {selected.length > 0 && <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 text-xs font-medium px-2 py-0.5 rounded-full">{selected.length}</span>}
+          <ChevronDown className={`h-5 w-5 text-slate-500 dark:text-slate-400 transition-transform duration-300 ${isOpen && "rotate-180"}`} />
         </div>
       </button>
       
       {isOpen && (
-        <div className="px-3 pb-3">
-          {/* Campo de búsqueda */}
+        <div className="p-3 bg-slate-50/50 dark:bg-slate-900/20">
           {isSearchable && (
-            <div className="relative mb-3">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+            <div className="relative mb-2">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
               <input
                 type="text"
-                placeholder="Buscar..."
+                placeholder={`Buscar en ${title}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-8 pr-2 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           )}
-          {/* Botón de seleccionar todo */}
-          <div className="mb-3">
-            <button onClick={handleSelectAll} className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors">
-              {filteredValues.length > 0 ? 'Seleccionar/Deseleccionar todo' : 'Sin resultados'}
-            </button>
-          </div>
-          {/* Lista de opciones */}
-          <div className="space-y-1 max-h-48 overflow-y-auto">
+          
+          <div className="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+            {values.length > 5 && (
+              <label className="flex items-center space-x-3 cursor-pointer py-1 text-sm font-medium text-slate-600 dark:text-slate-300">
+                <input 
+                  type="checkbox" 
+                  ref={selectAllCheckboxRef}
+                  checked={allFilteredSelected} 
+                  onChange={handleSelectAllToggle}
+                  className="h-4 w-4 text-blue-600 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-offset-0 focus:ring-2"
+                />
+                <span>{allFilteredSelected ? "Deseleccionar todo" : "Seleccionar todo"}</span>
+              </label>
+            )}
+
             {filteredValues.map(value => (
-              <label key={value} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded transition-all">
-                <input type="checkbox" checked={selected.includes(value)} onChange={() => handleToggle(value)} className="h-4 w-4 text-blue-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2"/>
-                <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate" title={value}>{value}</span>
-                <span className="text-xs text-gray-500">{countMap.get(value)?.toLocaleString() || 0}</span>
+              <label key={value} className="flex items-center justify-between w-full space-x-3 cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-800/60 p-2 rounded-md transition-colors">
+                <div className="flex items-center space-x-3 min-w-0">
+                  <input type="checkbox" checked={selected.includes(value)} onChange={() => handleItemToggle(value)} className="h-4 w-4 text-blue-600 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-offset-0 focus:ring-2"/>
+                  
+                  {/* --- SOLUCIÓN TOOLTIP PARA NOMBRES LARGOS --- */}
+                  <div className="relative group min-w-0">
+                    <span className="text-sm text-slate-700 dark:text-slate-300 block truncate">{value}</span>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max max-w-xs bg-slate-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                      {value}
+                    </div>
+                  </div>
+
+                </div>
+                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">{countMap.get(value)?.toLocaleString() || 0}</span>
               </label>
             ))}
+            {filteredValues.length === 0 && <p className="text-sm text-center text-slate-500 p-2">Sin resultados.</p>}
           </div>
         </div>
       )}
@@ -94,19 +119,17 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, values, selected, 
   );
 };
 
-// Componente principal del panel de filtros
+
+// --- COMPONENTE PRINCIPAL MEJORADO: FilterPanel ---
 const FilterPanel: React.FC<FilterPanelProps> = ({ data, filters, onFilterChange }) => {
-  const [openSections, setOpenSections] = useState({ farmacia: true, departamento: true, marca: false, clasificacion: true });
 
-  const toggleSection = (section: keyof typeof openSections) => setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
-
-  const useMemoizedFilterData = (field: keyof ConsolidatedInventoryItem) => {
+  const useMemoizedFilterData = (field: keyof ConsolidatedInventoryItem | keyof ConsolidatedInventoryItem[]) => {
     return useMemo(() => {
       const values = new Set<string>();
       const counts = new Map<string, number>();
       
       data.forEach(item => {
-        const itemValue = item[field];
+        const itemValue = item[field as keyof ConsolidatedInventoryItem];
         if (Array.isArray(itemValue)) {
           itemValue.forEach(v => {
             if(v) {
@@ -130,39 +153,32 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ data, filters, onFilterChange
   const clasificacionData = useMemoizedFilterData('clasificacion');
 
   const clearAllFilters = () => onFilterChange({ farmacia: [], departamento: [], marca: [], clasificacion: [] });
-  const hasActiveFilters = () => Object.values(filters).some(arr => arr.length > 0);
+  const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0);
 
-  // Estado cuando no hay datos
   if (data.length === 0) {
-    return (
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-blue-500/30 rounded-xl">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center space-x-2">
-          <Filter className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-          <h2 className="font-semibold text-gray-800 dark:text-gray-100">Filtros</h2>
-        </div>
-        <div className="p-4 text-center text-gray-500 dark:text-gray-400">Carga archivos para ver los filtros.</div>
-      </div>
-    );
+    return null; // En el nuevo layout, es mejor no mostrar nada si no hay datos.
   }
 
-  // Estado principal
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-blue-500/30 rounded-xl">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Filter className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-          <h2 className="font-semibold text-gray-800 dark:text-gray-100">Filtros</h2>
+    // Ya no necesita su propia tarjeta, porque se anida en una en App.tsx
+    <>
+      <FilterSection title="Clasificación" values={clasificacionData.uniqueValues} selected={filters.clasificacion} onChange={(s) => onFilterChange({ ...filters, clasificacion: s })} countMap={clasificacionData.valueCounts} />
+      <FilterSection title="Farmacia" values={farmaciaData.uniqueValues} selected={filters.farmacia} onChange={(s) => onFilterChange({ ...filters, farmacia: s })} countMap={farmaciaData.valueCounts} isSearchable={true} />
+      <FilterSection title="Departamento" values={departamentoData.uniqueValues} selected={filters.departamento} onChange={(s) => onFilterChange({ ...filters, departamento: s })} countMap={departamentoData.valueCounts} isSearchable={true} />
+      <FilterSection title="Marca" values={marcaData.uniqueValues} selected={filters.marca} onChange={(s) => onFilterChange({ ...filters, marca: s })} countMap={marcaData.valueCounts} isSearchable={true} />
+      
+      {hasActiveFilters && (
+        <div className="p-3 mt-2">
+          <button 
+            onClick={clearAllFilters} 
+            className="w-full flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-500 transition-colors font-semibold bg-slate-100 hover:bg-red-100 dark:bg-slate-800/50 dark:hover:bg-red-900/30 py-2 rounded-lg"
+          >
+            <XCircle size={16} />
+            Limpiar todos los filtros
+          </button>
         </div>
-        {hasActiveFilters() && <button onClick={clearAllFilters} className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors">Limpiar</button>}
-      </div>
-      {/* Las secciones de filtros */}
-      <div className="divide-y divide-gray-200 dark:divide-gray-800">
-        <FilterSection title="Clasificación" values={clasificacionData.uniqueValues} selected={filters.clasificacion} onChange={(s) => onFilterChange({ ...filters, clasificacion: s })} isOpen={openSections.clasificacion} onToggle={() => toggleSection('clasificacion')} countMap={clasificacionData.valueCounts} />
-        <FilterSection title="Farmacia" values={farmaciaData.uniqueValues} selected={filters.farmacia} onChange={(s) => onFilterChange({ ...filters, farmacia: s })} isOpen={openSections.farmacia} onToggle={() => toggleSection('farmacia')} countMap={farmaciaData.valueCounts} />
-        <FilterSection title="Departamento" values={departamentoData.uniqueValues} selected={filters.departamento} onChange={(s) => onFilterChange({ ...filters, departamento: s })} isOpen={openSections.departamento} onToggle={() => toggleSection('departamento')} countMap={departamentoData.valueCounts} isSearchable={true} />
-        <FilterSection title="Marca" values={marcaData.uniqueValues} selected={filters.marca} onChange={(s) => onFilterChange({ ...filters, marca: s })} isOpen={openSections.marca} onToggle={() => toggleSection('marca')} countMap={marcaData.valueCounts} isSearchable={true} />
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 
