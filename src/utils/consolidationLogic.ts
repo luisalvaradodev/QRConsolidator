@@ -1,3 +1,5 @@
+// src/utils/consolidationLogic.ts
+
 import { InventoryItem, ConsolidatedInventoryItem, ClassificationSettings } from '../types/inventory';
 
 export const consolidateData = (items: InventoryItem[], settings: ClassificationSettings): ConsolidatedInventoryItem[] => {
@@ -28,17 +30,13 @@ export const consolidateData = (items: InventoryItem[], settings: Classification
   return Object.entries(map).map(([codigo, product]) => {
     const { existenciaActual, cantidad, existenciasPorFarmacia } = product; // cantidad es el total de ventas de 60d
 
-    // --- INICIO DE CAMBIOS ---
-    // CORRECCIÓN: Calcular el promedio diario primero.
     const promedioDiario = cantidad / 60;
 
-    // CORRECCIÓN: Calcular las ventas totales para cada período.
     const ventas30d = promedioDiario * 30;
     const ventas40d = promedioDiario * 40;
     const ventas50d = promedioDiario * 50;
     
     const diasDeVenta = promedioDiario > 0 ? existenciaActual / promedioDiario : Infinity;
-    // --- FIN DE CAMBIOS ---
 
     let clasificacion = 'OK';
     let excesoUnidades = 0;
@@ -76,17 +74,15 @@ export const consolidateData = (items: InventoryItem[], settings: Classification
       existenciaActual: Math.ceil(existenciaActual),
       existenciasPorFarmacia,
       cantidad, // Mantenemos la cantidad total de ventas en 60d
-      // --- INICIO DE CAMBIOS ---
-      // CORRECCIÓN: Asignamos los valores correctos
       promedio30d: ventas30d,
       promedio40d: ventas40d,
       promedio50d: ventas50d,
       promedio60d: cantidad, // El "promedio" de 60 días son las ventas totales de 60 días
-      // --- FIN DE CAMBIOS ---
       sugerido30d: calculateSugerido(30),
       sugerido40d: calculateSugerido(40),
       sugerido50d: calculateSugerido(50),
       sugerido60d: calculateSugerido(60),
+      // LÍNEA CORREGIDA Y AÑADIDA:
       excesoUnidades: Math.max(0, Math.ceil(excesoUnidades)),
     };
   });
