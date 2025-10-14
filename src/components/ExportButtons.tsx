@@ -8,21 +8,14 @@ interface ExportButtonsProps {
   rawData: InventoryItem[];
 }
 
-/**
- * Función que genera un archivo Excel con múltiples hojas:
- * 1. Hoja 'Consolidado': Contiene todos los datos sin consolidar, como una lista completa.
- * 2. Hojas por Farmacia: Contienen los datos sin consolidar, específicos de cada farmacia.
- * Se incluyen las nuevas columnas: sugerido30d, sugerido50d, promedio40d, promedio50d y cantidad.
- * La columna 'Farmacia' ahora se coloca al final.
- */
+// La lógica de exportación no cambia
 const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: InventoryItem[], filename: string) => {
-  // Hoja 1: Datos no consolidados (todos los productos por farmacia, en una lista)
   const allDataForExport = rawData.map(item => ({
     'Código': item.codigo,
     'Nombre del producto': item.nombre,
     'Marca': item.marca,
     'Departamento': item.departamento,
-    'Farmacia': item.farmacia, // <-- Columna movida aquí
+    'Farmacia': item.farmacia,
     'Existencia Actual': item.existenciaActual,
     'Cant. Vendida 60 días': item.cantidad,
     'Clasificación': item.clasificacion,
@@ -30,14 +23,12 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
     'Sugerido 40 días': item.sugerido40d,
     'Sugerido 50 días': item.sugerido50d,
     'Sugerido 60 días': item.sugerido60d,
-    // Se redondea hacia el entero superior
     'Promedio Ventas 30 días': Math.ceil(item.promedio30d),
     'Promedio Ventas 40 días': Math.ceil(item.promedio40d),
     'Promedio Ventas 50 días': Math.ceil(item.promedio50d),
     'Promedio Ventas 60 días': Math.ceil(item.promedio60d),
   }));
 
-  // Hojas 2+: Datos por farmacia
   const farmaciaGroups = rawData.reduce((groups, item) => {
     if (!groups[item.farmacia]) {
       groups[item.farmacia] = [];
@@ -47,7 +38,7 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
       'Nombre del producto': item.nombre,
       'Marca': item.marca,
       'Departamento': item.departamento,
-      'Farmacia': item.farmacia, // <-- Columna movida aquí
+      'Farmacia': item.farmacia,
       'Existencia Actual': item.existenciaActual,
       'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
@@ -55,7 +46,6 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
       'Sugerido 40 días': item.sugerido40d,
       'Sugerido 50 días': item.sugerido50d,
       'Sugerido 60 días': item.sugerido60d,
-      // Se redondea hacia el entero superior
       'Promedio Ventas 30 días': Math.ceil(item.promedio30d),
       'Promedio Ventas 40 días': Math.ceil(item.promedio40d),
       'Promedio Ventas 50 días': Math.ceil(item.promedio50d),
@@ -65,7 +55,6 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
   }, {} as { [key: string]: any[] });
 
   const workbook = XLSX.utils.book_new();
-
   const consolidatedSheet = XLSX.utils.json_to_sheet(allDataForExport);
   XLSX.utils.book_append_sheet(workbook, consolidatedSheet, 'Consolidado');
 
@@ -83,38 +72,29 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, rawData }) => {
     exportToExcel(data, rawData, `inventario_consolidado_${timestamp}.xlsx`);
   };
 
+  // Vista compacta para cuando no hay datos
   if (data.length === 0) {
     return (
-      <div className="bg-gray-900 border border-blue-500/30 rounded-xl p-4">
-        <div className="flex items-center space-x-2 mb-3">
-          <Download className="h-5 w-5 text-blue-400" />
-          <h3 className="font-semibold text-gray-100">Exportar</h3>
-        </div>
-        <p className="text-gray-400 text-center py-4">No hay datos para exportar</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-blue-500/30 rounded-xl p-3 text-center">
+        <Download className="h-5 w-5 text-gray-400 dark:text-gray-500 mx-auto mb-1" />
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">Exportar</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">No hay datos</p>
       </div>
     );
   }
 
+  // Vista principal compacta
   return (
-    <div className="bg-gray-900 border border-blue-500/30 rounded-xl p-4">
-      <div className="flex items-center space-x-2 mb-3">
-        <Download className="h-5 w-5 text-blue-400" />
-        <h3 className="font-semibold text-gray-100">Exportar</h3>
-      </div>
-      <p className="text-sm text-gray-400 mb-4">
-        {rawData.length.toLocaleString()} productos totales.
-      </p>
-      <div className="space-y-3">
-        <button
-          onClick={handleExportExcel}
-          className="w-full flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <FileSpreadsheet className="h-4 w-4" />
-          <span>Exportar Excel</span>
-        </button>
-      </div>
-      <p className="text-xs text-gray-500 mt-3 text-center">
-        Incluye consolidado y datos por farmacia
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-blue-500/30 rounded-xl p-3">
+      <button
+        onClick={handleExportExcel}
+        className="w-full flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:ring-offset-gray-900 focus:ring-green-500"
+      >
+        <FileSpreadsheet className="h-4 w-4" />
+        <span>Exportar a Excel</span>
+      </button>
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
+        {rawData.length.toLocaleString()} productos en total.
       </p>
     </div>
   );

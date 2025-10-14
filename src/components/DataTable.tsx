@@ -11,7 +11,6 @@ interface DataTableProps {
 const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateChange }) => {
   const { currentPage, itemsPerPage, sortColumn, sortDirection } = tableState;
 
-  // Obtenemos una lista única y ordenada de farmacias para crear columnas dinámicas.
   const farmaciasUnicas = useMemo(() => {
     const farmaciasSet = new Set<string>();
     data.forEach(item => {
@@ -30,11 +29,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
   const handlePageChange = (page: number) => onTableStateChange({ ...tableState, currentPage: page });
 
   const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onTableStateChange({
-      ...tableState,
-      itemsPerPage: Number(e.target.value),
-      currentPage: 1,
-    });
+    onTableStateChange({ ...tableState, itemsPerPage: Number(e.target.value), currentPage: 1 });
   };
   
   const sortedData = useMemo(() => {
@@ -58,14 +53,11 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
   const displayItemsPerPage = itemsPerPage === 0 ? totalItems : itemsPerPage;
   const totalPages = itemsPerPage === 0 ? 1 : Math.ceil(totalItems / displayItemsPerPage);
 
-  const paginatedData = sortedData.slice(
-    (currentPage - 1) * displayItemsPerPage,
-    currentPage * displayItemsPerPage
-  );
+  const paginatedData = sortedData.slice((currentPage - 1) * displayItemsPerPage, currentPage * displayItemsPerPage);
 
   const SortIcon = ({ column }: { column: keyof ConsolidatedInventoryItem | string }) => {
     if (sortColumn !== column) return <div className="w-4 h-4 opacity-0 group-hover:opacity-50" />;
-    return sortDirection === 'asc' ? <ChevronUp className="w-4 h-4 text-blue-400" /> : <ChevronDown className="w-4 h-4 text-blue-400" />;
+    return sortDirection === 'asc' ? <ChevronUp className="w-4 h-4 text-blue-500 dark:text-blue-400" /> : <ChevronDown className="w-4 h-4 text-blue-500 dark:text-blue-400" />;
   };
 
   const columns = [
@@ -74,9 +66,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
     { key: 'marcas', label: 'Marca' },
     { key: 'departamentos', label: 'Departamento' }, 
     { key: 'existenciaActual', label: 'Exist. Total', isNumeric: true },
-    // --- CAMBIO AÑADIDO ---
-    { key: 'cantidad', label: 'Cant. 60d', isNumeric: true }, // Columna para ver las ventas totales
-    // --- FIN CAMBIO ---
+    { key: 'cantidad', label: 'Cant. 60d', isNumeric: true },
     { key: 'farmacias', label: 'Farmacias' },
     { key: 'clasificacion', label: 'Clasificación' },
     { key: 'sugerido30d', label: 'Sug. 30d', isNumeric: true },
@@ -91,66 +81,57 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
 
   if (data.length === 0) {
     return (
-      <div className="bg-gray-900 border border-blue-500/30 rounded-xl p-8 text-center">
-        <p className="text-gray-400 text-lg">No hay productos que coincidan con los filtros actuales.</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-blue-500/30 rounded-xl p-8 text-center">
+        <p className="text-gray-500 dark:text-gray-400 text-lg">No hay productos que coincidan con los filtros actuales.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-900 border border-blue-500/30 rounded-xl overflow-hidden">
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-blue-500/30 rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-800 border-b border-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr>
               {columns.map(col => (
-                <th key={col.key} className={`group p-3 text-xs font-semibold text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-all ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => handleSort(col.key as keyof ConsolidatedInventoryItem)}>
+                <th key={col.key} className={`group p-3 text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => handleSort(col.key as keyof ConsolidatedInventoryItem)}>
                   <div className={`flex items-center gap-1 ${col.isNumeric ? 'justify-end' : ''}`}>{col.label}<SortIcon column={col.key as keyof ConsolidatedInventoryItem}/></div>
                 </th>
               ))}
-              {/* Encabezados para las columnas de inventario por farmacia */}
               {farmaciasUnicas.map(farmacia => (
-                <th key={farmacia} className="group p-3 text-xs font-semibold text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-all text-right" onClick={() => handleSort(farmacia)}>
-                  <div className="flex items-center gap-1 justify-end">
-                    {`Exist. ${farmacia}`}
-                    <SortIcon column={farmacia}/>
-                  </div>
+                <th key={farmacia} className="group p-3 text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-right" onClick={() => handleSort(farmacia)}>
+                  <div className="flex items-center gap-1 justify-end">{`Exist. ${farmacia}`}<SortIcon column={farmacia}/></div>
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800">
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
             {paginatedData.map((item, index) => (
-              <tr key={`${item.codigo}-${index}`} className={`transition-all hover:bg-gray-800/50 ${index % 2 === 0 ? 'bg-gray-900' : 'bg-gray-900/70'}`}>
-                {/* Celdas para todas tus columnas originales */}
-                <td className="p-3 font-mono text-xs text-blue-300" title={item.codigo}>{item.codigo}</td>
-                <td className="p-3 max-w-xs" title={item.nombres.join(', ')}><div className="truncate text-gray-200">{item.nombres.join(', ')}</div></td>
-                <td className="p-3 max-w-xs" title={item.marcas.join(', ')}><div className="truncate text-gray-300">{item.marcas.join(', ')}</div></td>
-                <td className="p-3 max-w-xs" title={item.departamentos.join(', ')}><div className="truncate text-gray-300">{item.departamentos.join(', ')}</div></td>
-                <td className="p-3 text-right font-medium text-white">{item.existenciaActual.toLocaleString()}</td>
-                {/* --- CAMBIO AÑADIDO --- */}
-                <td className="p-3 text-right font-medium text-gray-300">{item.cantidad.toLocaleString()}</td>
-                {/* --- FIN CAMBIO --- */}
-                <td className="p-3" title={item.farmacias.join(', ')}><div className="truncate text-gray-300">{item.farmacias.join(', ')}</div></td>
+              <tr key={`${item.codigo}-${index}`} className={`transition-colors hover:bg-gray-100 dark:hover:bg-gray-800/50 ${index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-900/70'}`}>
+                <td className="p-3 font-mono text-xs text-blue-600 dark:text-blue-300" title={item.codigo}>{item.codigo}</td>
+                <td className="p-3 max-w-xs" title={item.nombres.join(', ')}><div className="truncate text-gray-800 dark:text-gray-200">{item.nombres.join(', ')}</div></td>
+                <td className="p-3 max-w-xs" title={item.marcas.join(', ')}><div className="truncate text-gray-600 dark:text-gray-300">{item.marcas.join(', ')}</div></td>
+                <td className="p-3 max-w-xs" title={item.departamentos.join(', ')}><div className="truncate text-gray-600 dark:text-gray-300">{item.departamentos.join(', ')}</div></td>
+                <td className="p-3 text-right font-medium text-gray-900 dark:text-white">{item.existenciaActual.toLocaleString()}</td>
+                <td className="p-3 text-right font-medium text-gray-600 dark:text-gray-300">{item.cantidad.toLocaleString()}</td>
+                <td className="p-3" title={item.farmacias.join(', ')}><div className="truncate text-gray-600 dark:text-gray-300">{item.farmacias.join(', ')}</div></td>
                 <td className="p-3 text-center">
                   <span className={`inline-block w-full px-2 py-1 text-xs font-semibold rounded-full ${
-                      item.clasificacion === 'Falla' ? 'bg-red-500/20 text-red-300 border border-red-500/50' :
-                      item.clasificacion === 'Exceso' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50' :
-                      item.clasificacion === 'No vendido' ? 'bg-gray-500/20 text-gray-300 border border-gray-500/50' : 'bg-green-500/20 text-green-300 border border-green-500/50'
+                      item.clasificacion === 'Falla' ? 'bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/50' :
+                      item.clasificacion === 'Exceso' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-300 dark:border-yellow-500/50' :
+                      item.clasificacion === 'No vendido' ? 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-500/20 dark:text-gray-300 dark:border-gray-500/50' : 'bg-green-100 text-green-700 border border-green-200 dark:bg-green-500/20 dark:text-green-300 dark:border-green-500/50'
                     }`}>{item.clasificacion}</span>
                 </td>
-                <td className="p-3 text-right font-bold text-blue-400">{item.sugerido30d.toLocaleString()}</td>
-                <td className="p-3 text-right font-bold text-blue-400">{item.sugerido40d.toLocaleString()}</td>
-                <td className="p-3 text-right font-bold text-blue-400">{item.sugerido50d.toLocaleString()}</td>
-                <td className="p-3 text-right font-bold text-blue-400">{item.sugerido60d.toLocaleString()}</td>
-                <td className="p-3 text-right text-gray-300">{item.promedio30d.toFixed(2)}</td>
-                <td className="p-3 text-right text-gray-300">{item.promedio40d.toFixed(2)}</td>
-                <td className="p-3 text-right text-gray-300">{item.promedio50d.toFixed(2)}</td>
-                <td className="p-3 text-right text-gray-300">{item.promedio60d.toFixed(2)}</td>
-
-                {/* Celdas para el inventario por farmacia */}
+                <td className="p-3 text-right font-bold text-blue-600 dark:text-blue-400">{item.sugerido30d.toLocaleString()}</td>
+                <td className="p-3 text-right font-bold text-blue-600 dark:text-blue-400">{item.sugerido40d.toLocaleString()}</td>
+                <td className="p-3 text-right font-bold text-blue-600 dark:text-blue-400">{item.sugerido50d.toLocaleString()}</td>
+                <td className="p-3 text-right font-bold text-blue-600 dark:text-blue-400">{item.sugerido60d.toLocaleString()}</td>
+                <td className="p-3 text-right text-gray-500 dark:text-gray-300">{item.promedio30d.toFixed(2)}</td>
+                <td className="p-3 text-right text-gray-500 dark:text-gray-300">{item.promedio40d.toFixed(2)}</td>
+                <td className="p-3 text-right text-gray-500 dark:text-gray-300">{item.promedio50d.toFixed(2)}</td>
+                <td className="p-3 text-right text-gray-500 dark:text-gray-300">{item.promedio60d.toFixed(2)}</td>
                 {farmaciasUnicas.map(farmacia => (
-                  <td key={farmacia} className="p-3 text-right text-white font-medium">
+                  <td key={farmacia} className="p-3 text-right text-gray-900 dark:text-white font-medium">
                     {(item.existenciasPorFarmacia[farmacia] || 0).toLocaleString()}
                   </td>
                 ))}
@@ -159,13 +140,13 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
           </tbody>
         </table>
       </div>
-      <div className="px-4 py-3 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm text-gray-300">
+      <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
           <span>Mostrar</span>
           <select 
             value={itemsPerPage} 
             onChange={handleItemsPerPageChange}
-            className="border border-gray-600 bg-gray-800 text-gray-200 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="border border-gray-300 bg-white text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value={50}>50</option>
             <option value={100}>100</option>
@@ -173,20 +154,15 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
             <option value={0}>Todo</option>
           </select>
           <span>
-            {itemsPerPage > 0
-              ? `Página ${currentPage} de ${totalPages}`
-              : `Mostrando ${totalItems.toLocaleString()} productos`
-            }
+            {itemsPerPage > 0 ? `Página ${currentPage} de ${totalPages}` : `Mostrando ${totalItems.toLocaleString()} productos`}
           </span>
         </div>
         
         {itemsPerPage > 0 && totalPages > 1 && (
-          <div className="flex items-center space-x-1">
-            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="p-2 rounded-lg border border-gray-600 disabled:opacity-50 hover:bg-gray-800 transition-all"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="px-2 text-sm text-gray-300">
-              {currentPage}
-            </span>
-            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 rounded-lg border border-gray-600 disabled:opacity-50 hover:bg-gray-800 transition-all"><ChevronRight className="w-4 h-4" /></button>
+          <div className="flex items-center space-x-1 text-gray-700 dark:text-gray-200">
+            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="px-2 text-sm text-gray-600 dark:text-gray-300">{currentPage}</span>
+            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><ChevronRight className="w-4 h-4" /></button>
           </div>
         )}
       </div>
