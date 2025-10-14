@@ -8,7 +8,7 @@ interface ExportButtonsProps {
   rawData: InventoryItem[];
 }
 
-// La lógica de exportación no cambia
+// La lógica de exportación corregida
 const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: InventoryItem[], filename: string) => {
   const allDataForExport = rawData.map(item => ({
     'Código': item.codigo,
@@ -19,6 +19,7 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
     'Existencia Actual': item.existenciaActual,
     'Cant. Vendida 60 días': item.cantidad,
     'Clasificación': item.clasificacion,
+    'Cantidad en Exceso': item.excesoUnidades, // <-- Columna añadida
     'Sugerido 30 días': item.sugerido30d,
     'Sugerido 40 días': item.sugerido40d,
     'Sugerido 50 días': item.sugerido50d,
@@ -42,6 +43,7 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
       'Existencia Actual': item.existenciaActual,
       'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
+      'Cantidad en Exceso': item.excesoUnidades, // <-- Columna añadida
       'Sugerido 30 días': item.sugerido30d,
       'Sugerido 40 días': item.sugerido40d,
       'Sugerido 50 días': item.sugerido50d,
