@@ -22,6 +22,7 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
     'Nombre del producto': item.nombre,
     'Marca': item.marca,
     'Departamento': item.departamento,
+    'Farmacia': item.farmacia, // <-- Columna movida aquí
     'Existencia Actual': item.existenciaActual,
     'Cant. Vendida 60 días': item.cantidad,
     'Clasificación': item.clasificacion,
@@ -29,15 +30,14 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
     'Sugerido 40 días': item.sugerido40d,
     'Sugerido 50 días': item.sugerido50d,
     'Sugerido 60 días': item.sugerido60d,
-    // Se redondea a 1 decimal
-    'Promedio Ventas 30 días': item.promedio30d.toFixed(1),
-    'Promedio Ventas 40 días': item.promedio40d.toFixed(1),
-    'Promedio Ventas 50 días': item.promedio50d.toFixed(1),
-    'Promedio Ventas 60 días': item.promedio60d.toFixed(1),
-    'Farmacia': item.farmacia,
+    // Se redondea hacia el entero superior
+    'Promedio Ventas 30 días': Math.ceil(item.promedio30d),
+    'Promedio Ventas 40 días': Math.ceil(item.promedio40d),
+    'Promedio Ventas 50 días': Math.ceil(item.promedio50d),
+    'Promedio Ventas 60 días': Math.ceil(item.promedio60d),
   }));
 
-  // Hojas 2+: Datos por farmacia (Farmacia al final de las columnas estáticas)
+  // Hojas 2+: Datos por farmacia
   const farmaciaGroups = rawData.reduce((groups, item) => {
     if (!groups[item.farmacia]) {
       groups[item.farmacia] = [];
@@ -47,6 +47,7 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
       'Nombre del producto': item.nombre,
       'Marca': item.marca,
       'Departamento': item.departamento,
+      'Farmacia': item.farmacia, // <-- Columna movida aquí
       'Existencia Actual': item.existenciaActual,
       'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
@@ -54,12 +55,11 @@ const exportToExcel = (_consolidatedData: ConsolidatedInventoryItem[], rawData: 
       'Sugerido 40 días': item.sugerido40d,
       'Sugerido 50 días': item.sugerido50d,
       'Sugerido 60 días': item.sugerido60d,
-      // Se redondea a 1 decimal
-      'Promedio Ventas 30 días': item.promedio30d.toFixed(1),
-      'Promedio Ventas 40 días': item.promedio40d.toFixed(1),
-      'Promedio Ventas 50 días': item.promedio50d.toFixed(1),
-      'Promedio Ventas 60 días': item.promedio60d.toFixed(1),
-      'Farmacia': item.farmacia,
+      // Se redondea hacia el entero superior
+      'Promedio Ventas 30 días': Math.ceil(item.promedio30d),
+      'Promedio Ventas 40 días': Math.ceil(item.promedio40d),
+      'Promedio Ventas 50 días': Math.ceil(item.promedio50d),
+      'Promedio Ventas 60 días': Math.ceil(item.promedio60d),
     });
     return groups;
   }, {} as { [key: string]: any[] });
