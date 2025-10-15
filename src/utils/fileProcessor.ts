@@ -1,10 +1,10 @@
 import * as XLSX from 'xlsx';
 import { InventoryItem, ClassificationSettings } from '../types/inventory';
 
-// Helper para normalizar los encabezados de las columnas para un acceso consistente
+// Helper para normalizar los encabezados (sin cambios)
 const normalizeHeader = (h: string): string => h ? h.toLowerCase().trim().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/\./g, '').replace(/\s+/g, '') : '';
 
-// Helper para normalizar las claves de un objeto de datos
+// Helper para normalizar las claves de un objeto (sin cambios)
 const normalizeObjectKeys = (obj: any): any => {
     const newObj: any = {};
     for (const key in obj) {
@@ -13,16 +13,93 @@ const normalizeObjectKeys = (obj: any): any => {
             if (normalizedKey === 'código' || normalizedKey === 'codigo') newObj.codigo = obj[key];
             else if (normalizedKey === 'nombre') newObj.nombre = obj[key];
             else if (normalizedKey === 'existenciaactual' || normalizedKey === 'existencia') newObj.existenciaActual = obj[key];
-            else if (normalizedKey === 'departamento' || normalizedKey === 'dptodescrip') newObj.departamento = obj[key];
+            else if (normalizedKey === 'departamento' || normalizedKey === 'dptodescrip' || normalizedKey === 'departamentonombre') newObj.departamento = obj[key];
             else if (normalizedKey === 'marca') newObj.marca = obj[key];
             else if (normalizedKey === 'ventas60d' || normalizedKey === 'cantidad') newObj.ventas60d = obj[key];
+            else if (normalizedKey === 'monedafactorcambio') newObj.monedaFactorCambio = obj[key];
+            else if (normalizedKey === 'costounitario') newObj.costoUnitario = obj[key];
+            else if (normalizedKey === '%util') newObj.utilidad = obj[key];
+            else if (normalizedKey === 'preciomaximo') newObj.precioMaximo = obj[key];
             else newObj[normalizedKey] = obj[key];
         }
     }
     return newObj;
 };
 
-// Lógica de cálculo principal para los datos de una farmacia
+// --- FUNCIÓN CENTRALIZADA PARA CÁLCULOS ---
+// Esta función contiene toda la lógica de clasificación, promedios y sugeridos.
+const calculateDerivedMetrics = (existenciaActual: number, cantidad: number, settings: ClassificationSettings) => {
+    const promedioDiario = cantidad / 60;
+    const diasDeVenta = promedioDiario > 0 ? existenciaActual / promedioDiario : Infinity;
+
+    let clasificacion = 'OK';
+    let excesoUnidades = 0;
+
+    if (existenciaActual === 0 && cantidad === 0) {
+        clasificacion = 'No vendido';
+    } else if (cantidad > 0) {
+        if (diasDeVenta < settings.diasFalla) clasificacion = 'Falla';
+        else if (diasDeVenta > settings.diasExceso) {
+            clasificacion = 'Exceso';
+            excesoUnidades = Math.ceil(existenciaActual - (promedioDiario * settings.diasExceso));
+        }
+    } else { // cantidad es 0 pero existencia es > 0
+        clasificacion = 'No vendido';
+    }
+
+    if (clasificacion === 'No vendido') {
+        excesoUnidades = existenciaActual;
+    }
+
+    const promedios: { [key: string]: any } = {};
+    const sugeridos: { [key: string]: any } = {};
+
+    settings.periodos.forEach(days => {
+        promedios[`promedio${days}d`] = promedioDiario * days;
+        const required = promedioDiario * days;
+        const suggestion = required - existenciaActual;
+        if (clasificacion === 'Falla' || (clasificacion === 'OK' && suggestion > 0)) {
+            sugeridos[`sugerido${days}d`] = Math.max(0, Math.ceil(suggestion));
+        } else {
+            sugeridos[`sugerido${days}d`] = 0;
+        }
+    });
+
+    return {
+        clasificacion,
+        excesoUnidades: Math.max(0, Math.ceil(excesoUnidades)),
+        ...promedios,
+        ...sugeridos,
+    };
+};
+
+// --- NUEVA FUNCIÓN EXPORTADA PARA REPROCESAR DATOS ---
+// Esta función toma los datos brutos existentes y aplica la nueva configuración de períodos.
+export const reprocessRawData = (currentRawData: InventoryItem[], settings: ClassificationSettings): InventoryItem[] => {
+    return currentRawData.map(item => {
+        const derived = calculateDerivedMetrics(item.existenciaActual, item.cantidad, settings);
+        
+        // Reconstruimos el objeto para asegurar que no queden datos de cálculos anteriores
+        const newItem: InventoryItem = {
+             codigo: item.codigo,
+             nombre: item.nombre,
+             existenciaActual: item.existenciaActual,
+             departamento: item.departamento,
+             marca: item.marca,
+             cantidad: item.cantidad,
+             farmacia: item.farmacia,
+             monedaFactorCambio: item.monedaFactorCambio,
+             costoUnitario: item.costoUnitario,
+             utilidad: item.utilidad,
+             precioMaximo: item.precioMaximo,
+             ...derived
+        };
+        return newItem;
+    });
+};
+
+
+// Lógica principal de cálculo (ahora usa la función centralizada)
 const calculateInventoryMetrics = (
     rawProducts: any[],
     rawSales: any[],
@@ -41,80 +118,43 @@ const calculateInventoryMetrics = (
         }
     });
     
+    // ... (lógica para inferir departamento, sin cambios)
     const departmentKeywords = new Map<string, Set<string>>();
-    products.forEach(p => {
-        const departamento = p.departamento || '';
-        if (departamento && p.nombre && departamento.toLowerCase() !== 'sin depto.') {
-            if(!departmentKeywords.has(departamento)) departmentKeywords.set(departamento, new Set());
-            const words = String(p.nombre).toLowerCase().match(/\b(\w{4,})\b/g) || [];
-            words.forEach(word => departmentKeywords.get(departamento)!.add(word));
-        }
-    });
+ 	products.forEach(p => {
+          const departamento = p.departamento || '';
+          if (departamento && p.nombre && departamento.toLowerCase() !== 'sin depto.') {
+              if(!departmentKeywords.has(departamento)) departmentKeywords.set(departamento, new Set());
+              const words = String(p.nombre).toLowerCase().match(/\b(\w{4,})\b/g) || [];
+              words.forEach(word => departmentKeywords.get(departamento)!.add(word));
+          }
+      });
 
-    const inferDepartment = (productName: string): string => {
-        let bestMatch = 'Sin Depto.';
-        let maxScore = 0;
-        const lowerProductName = String(productName).toLowerCase();
-        
-        departmentKeywords.forEach((keywords, dept) => {
-            let score = 0;
-            keywords.forEach(kw => {
-                if(lowerProductName.includes(kw)) score++;
-            });
-            if (score > maxScore) {
-                maxScore = score;
-                bestMatch = dept;
-            }
-        });
-        return bestMatch;
-    }
+      const inferDepartment = (productName: string): string => {
+          let bestMatch = 'Sin Depto.';
+          let maxScore = 0;
+          const lowerProductName = String(productName).toLowerCase();
+          
+          departmentKeywords.forEach((keywords, dept) => {
+              let score = 0;
+              keywords.forEach(kw => {
+                  if(lowerProductName.includes(kw)) score++;
+              });
+              if (score > maxScore) {
+                  maxScore = score;
+                  bestMatch = dept;
+              }
+          });
+          return bestMatch;
+      };
 
     return products
-        // Se ha ELIMINADO la línea de filtro que buscaba 'COD01' en el nombre del producto.
-        .filter(p => p.nombre)
+        .filter(p => p.nombre && String(p.nombre).trim().toUpperCase() !== 'COD01')
         .map(p => {
             const codigo = String(p.codigo || '');
             const existenciaActual = Number(p.existenciaActual) || 0;
-            const cantidad = salesMap.get(codigo) || 0; // Ventas totales en 60 días
+            const cantidad = salesMap.get(codigo) || 0;
             
-            // --- INICIO DE CAMBIOS ---
-            // CORRECCIÓN: Calcular el promedio diario primero.
-            const promedioDiario = cantidad / 60;
-
-            // CORRECCIÓN: Calcular las ventas totales para cada período.
-            const ventas30d = promedioDiario * 30;
-            const ventas40d = promedioDiario * 40;
-            const ventas50d = promedioDiario * 50;
-            // El promedio de 60d es simplemente el total de ventas en 60 días.
-
-            const diasDeVenta = promedioDiario > 0 ? existenciaActual / promedioDiario : Infinity;
-            // --- FIN DE CAMBIOS ---
-
-            let clasificacion = 'OK';
-            let excesoUnidades = 0;
-
-            if (cantidad > 0) {
-                if (diasDeVenta < settings.diasFalla) clasificacion = 'Falla';
-                else if (diasDeVenta > settings.diasExceso) {
-                    clasificacion = 'Exceso';
-                    excesoUnidades = Math.ceil(existenciaActual - (promedioDiario * settings.diasExceso));
-                }
-            } else {
-                if (existenciaActual > 0) clasificacion = 'No vendido';
-            }
-
-            if (clasificacion === 'No vendido') {
-                excesoUnidades = existenciaActual;
-            }
-            
-            const calculateSugerido = (days: number): number => {
-                const required = promedioDiario * days;
-                const suggestion = required - existenciaActual;
-                if (clasificacion === 'Falla' || (clasificacion === 'OK' && suggestion > 0)) {
-                    return Math.max(0, Math.ceil(suggestion));
-                }
-                return 0;
-            };
+            const derivedMetrics = calculateDerivedMetrics(existenciaActual, cantidad, settings);
             
             let departamento = p.departamento || '';
             if (!departamento || departamento.toLowerCase().includes('sin depto')) {
@@ -127,26 +167,21 @@ const calculateInventoryMetrics = (
                 existenciaActual: Math.ceil(existenciaActual),
                 departamento: departamento || 'Sin Depto.',
                 marca: String(p.marca || 'Sin Marca'),
-                cantidad, // Se mantiene como el total de ventas en 60 días
-                // --- INICIO DE CAMBIOS ---
-                // CORRECCIÓN: Asignamos los valores correctos de ventas por período.
-                // El "promedio" que pediste es en realidad el total de ventas en ese período.
-                promedio30d: ventas30d,
-                promedio40d: ventas40d,
-                promedio50d: ventas50d,
-                promedio60d: cantidad, // El "promedio" de 60 días son las ventas totales de 60 días
-                // --- FIN DE CAMBIOS ---
-                clasificacion,
-                sugerido30d: calculateSugerido(30),
-                sugerido40d: calculateSugerido(40),
-                sugerido50d: calculateSugerido(50),
-                sugerido60d: calculateSugerido(60),
-                excesoUnidades: Math.max(0, Math.ceil(excesoUnidades)),
+                cantidad,
                 farmacia: farmaciaName,
+                monedaFactorCambio: Number(p.monedaFactorCambio) || 0,
+                costoUnitario: Number(p.costoUnitario) || 0,
+                // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
+                // Se multiplica por 100, se redondea y se divide por 100 para obtener 2 decimales.
+                utilidad: Math.round((Number(p.utilidad) || 0) * 100) / 100,
+                precioMaximo: Number(p.precioMaximo) || 0,
+                ...derivedMetrics
             };
         });
 };
 
+
+// Función para leer el archivo (sin cambios)
 const readFile = (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -163,7 +198,7 @@ const readFile = (file: File): Promise<any[]> => {
     });
 };
 
-// Función principal exportada para ser llamada desde la UI
+// Función principal para procesar archivos (sin cambios)
 export const processFile = async (files: File[], settings: ClassificationSettings): Promise<InventoryItem[]> => {
     const getPharmacyKey = (name: string): string => {
         const lowerName = name.toLowerCase();
