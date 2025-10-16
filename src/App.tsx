@@ -47,7 +47,7 @@ const CompactHeader = ({
     <div className="max-w-full mx-auto px-4 sm:px-6">
       <div className="flex items-center justify-between h-14">
         <div className="flex items-center space-x-3">
-          <img src="/q.jpeg" alt="Logo" className="h-10 w-10 rounded-full border-2 border-blue-500"/>
+          <img src="/q2.png" alt="Logo" className="h-10 w-10 rounded-full border-2 border-blue-500"/>
           <div>
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">Quirófanos Farmacias</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">Análisis de Inventario</p>
