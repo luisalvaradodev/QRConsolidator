@@ -1,26 +1,27 @@
 import * as XLSX from 'xlsx';
 import { InventoryItem, ClassificationSettings } from '../types/inventory';
 
-// --- NUEVA FUNCIÓN AUXILIAR ---
-// Helper para convertir números en formato español (con coma decimal) a un número que JavaScript entienda.
+// --- FUNCIÓN AUXILIAR MEJORADA ---
+// Convierte números en formato con coma decimal a un número estándar de JS.
+// Si el valor ya es un número, lo devuelve sin cambios.
 const parseSpanishNumber = (value: any): number => {
     if (typeof value === 'number') {
         return value;
     }
     if (typeof value === 'string') {
-        // Elimina los puntos de miles y reemplaza la coma decimal por un punto.
+        // Elimina los puntos de miles (si los hay) y reemplaza la coma decimal por un punto.
         const cleanedValue = value.replace(/\./g, '').replace(',', '.');
         const parsed = parseFloat(cleanedValue);
         return isNaN(parsed) ? 0 : parsed;
     }
+    // Si no es ni número ni string, devuelve 0.
     return 0;
 };
 
-
-// Helper para normalizar los encabezados (sin cambios)
+// Helper para normalizar los encabezados (sin cambios, ya es flexible)
 const normalizeHeader = (h: string): string => h ? h.toLowerCase().trim().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/\./g, '').replace(/\s+/g, '') : '';
 
-// Helper para normalizar las claves de un objeto (sin cambios)
+// Helper para normalizar las claves de un objeto (sin cambios, ya es flexible)
 const normalizeObjectKeys = (obj: any): any => {
     const newObj: any = {};
     for (const key in obj) {
@@ -31,6 +32,7 @@ const normalizeObjectKeys = (obj: any): any => {
             else if (normalizedKey === 'existenciaactual' || normalizedKey === 'existencia') newObj.existenciaActual = obj[key];
             else if (normalizedKey === 'departamento' || normalizedKey === 'dptodescrip' || normalizedKey === 'departamentonombre') newObj.departamento = obj[key];
             else if (normalizedKey === 'marca') newObj.marca = obj[key];
+            // Mapea ambas posibilidades a una sola clave: 'ventas60d'
             else if (normalizedKey === 'ventas60d' || normalizedKey === 'cantidad') newObj.ventas60d = obj[key];
             else if (normalizedKey === 'monedafactorcambio') newObj.monedaFactorCambio = obj[key];
             else if (normalizedKey === 'costounitario') newObj.costoUnitario = obj[key];
@@ -43,7 +45,7 @@ const normalizeObjectKeys = (obj: any): any => {
 };
 
 // --- FUNCIÓN CENTRALIZADA PARA CÁLCULOS ---
-// Esta función contiene toda la lógica de clasificación, promedios y sugeridos.
+// (Sin cambios)
 const calculateDerivedMetrics = (existenciaActual: number, cantidad: number, settings: ClassificationSettings) => {
     const promedioDiario = cantidad / 60;
     const diasDeVenta = promedioDiario > 0 ? existenciaActual / promedioDiario : Infinity;
@@ -89,13 +91,11 @@ const calculateDerivedMetrics = (existenciaActual: number, cantidad: number, set
     };
 };
 
-// --- NUEVA FUNCIÓN EXPORTADA PARA REPROCESAR DATOS ---
-// Esta función toma los datos brutos existentes y aplica la nueva configuración de períodos.
+// --- FUNCIÓN DE REPROCESAMIENTO ---
+// (Sin cambios)
 export const reprocessRawData = (currentRawData: InventoryItem[], settings: ClassificationSettings): InventoryItem[] => {
     return currentRawData.map(item => {
         const derived = calculateDerivedMetrics(item.existenciaActual, item.cantidad, settings);
-        
-        // Reconstruimos el objeto para asegurar que no queden datos de cálculos anteriores
         const newItem: InventoryItem = {
              codigo: item.codigo,
              nombre: item.nombre,
@@ -114,8 +114,7 @@ export const reprocessRawData = (currentRawData: InventoryItem[], settings: Clas
     });
 };
 
-
-// Lógica principal de cálculo (ahora usa la función centralizada)
+// --- LÓGICA PRINCIPAL DE CÁLCULO (ACTUALIZADA) ---
 const calculateInventoryMetrics = (
     rawProducts: any[],
     rawSales: any[],
@@ -127,17 +126,18 @@ const calculateInventoryMetrics = (
 
     const salesMap = new Map<string, number>();
     sales.forEach(item => {
-        // --- CORRECCIÓN #1 ---
-        // Se lee la columna 'existenciaActual' de los archivos de ventas, ya que ahí viene la cantidad vendida.
-        // También se usa la nueva función para convertir el número correctamente.
-        const salesQty = parseSpanishNumber(item.existenciaActual);
+        // --- ¡AQUÍ ESTÁ LA LÓGICA DE COMPATIBILIDAD! ---
+        // 1. Busca la columna 'ventas60d' (que puede venir de 'Cantidad' o 'Ventas 60d').
+        // 2. Si no existe, busca la columna 'existenciaActual' como alternativa.
+        // 3. Usa la función 'parseSpanishNumber' para leer el valor correctamente.
+        const salesQty = parseSpanishNumber(item.ventas60d ?? item.existenciaActual);
         if (item.codigo) {
             const codigoStr = String(item.codigo);
             salesMap.set(codigoStr, (salesMap.get(codigoStr) || 0) + salesQty);
         }
     });
     
-    // ... (lógica para inferir departamento, sin cambios)
+    // Lógica para inferir departamento (sin cambios)
     const departmentKeywords = new Map<string, Set<string>>();
     products.forEach(p => {
           const departamento = p.departamento || '';
@@ -146,32 +146,25 @@ const calculateInventoryMetrics = (
               const words = String(p.nombre).toLowerCase().match(/\b(\w{4,})\b/g) || [];
               words.forEach(word => departmentKeywords.get(departamento)!.add(word));
           }
-      });
-
-      const inferDepartment = (productName: string): string => {
+    });
+    const inferDepartment = (productName: string): string => {
           let bestMatch = 'Sin Depto.';
           let maxScore = 0;
           const lowerProductName = String(productName).toLowerCase();
-          
           departmentKeywords.forEach((keywords, dept) => {
               let score = 0;
-              keywords.forEach(kw => {
-                  if(lowerProductName.includes(kw)) score++;
-              });
-              if (score > maxScore) {
-                  maxScore = score;
-                  bestMatch = dept;
-              }
+              keywords.forEach(kw => { if(lowerProductName.includes(kw)) score++; });
+              if (score > maxScore) { maxScore = score; bestMatch = dept; }
           });
           return bestMatch;
-      };
+    };
 
     return products
         .filter(p => p.nombre && String(p.nombre).trim().toUpperCase() !== 'COD01')
         .map(p => {
             const codigo = String(p.codigo || '');
-            // --- CORRECCIÓN #2 ---
-            // Se utiliza la nueva función 'parseSpanishNumber' para leer correctamente todos los valores numéricos.
+            // --- ROBUSTEZ MEJORADA ---
+            // Se usa 'parseSpanishNumber' en todos los campos numéricos para asegurar la lectura correcta.
             const existenciaActual = parseSpanishNumber(p.existenciaActual);
             const cantidad = salesMap.get(codigo) || 0;
             
@@ -198,7 +191,6 @@ const calculateInventoryMetrics = (
             };
         });
 };
-
 
 // Función para leer el archivo (sin cambios)
 const readFile = (file: File): Promise<any[]> => {
