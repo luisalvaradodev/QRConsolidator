@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Moon, Sun, Filter, Settings, Search, Menu, X, Briefcase, RefreshCw, BarChart3 } from 'lucide-react';
+import { Moon, Sun, Filter, Settings, Menu, X, Briefcase, RefreshCw } from 'lucide-react';
 import FileUploader from './components/FileUploader';
 import FilterPanel from './components/FilterPanel';
 import SearchBar from './components/SearchBar';
@@ -109,7 +109,7 @@ function App() {
     return storedTheme ? storedTheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  const [isDashboardVisible, setIsDashboardVisible] = useState(false);
+  const [, setIsDashboardVisible] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);

@@ -1,18 +1,21 @@
 import React from 'react';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import { InventoryItem, ClassificationSettings } from '../types/inventory';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 interface ExportButtonsProps {
   rawData: InventoryItem[];
   settings: ClassificationSettings;
 }
 
-const exportToExcel = (rawData: InventoryItem[], settings: ClassificationSettings, filename: string) => {
+const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationSettings, filename: string) => {
+  const workbook = new ExcelJS.Workbook();
+
+  // Esta función está perfecta, no necesita cambios.
   const mapItemToRow = (item: InventoryItem) => {
     const sugeridoColumns: { [key: string]: any } = {};
     const promedioColumns: { [key: string]: any } = {};
-
     const sortedPeriodos = [...settings.periodos].sort((a, b) => a - b);
 
     sortedPeriodos.forEach(p => {
@@ -44,6 +47,38 @@ const exportToExcel = (rawData: InventoryItem[], settings: ClassificationSetting
 
   const allDataForExport = rawData.map(mapItemToRow);
 
+  const headerStyle: Partial<ExcelJS.Style> = {
+    font: { bold: true, color: { argb: 'FF000000' } },
+    fill: {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFFFF00' },
+    },
+  };
+
+  const addSheetWithStyles = (sheetName: string, data: any[]) => {
+    const sheet = workbook.addWorksheet(sheetName);
+    if (data.length === 0) return;
+
+    const headers = Object.keys(data[0]);
+    const headerRow = sheet.addRow(headers);
+
+    headerRow.eachCell((cell) => {
+      cell.style = headerStyle;
+    });
+
+    // --- INICIO DE LA CORRECCIÓN ---
+    // En lugar de usar Object.values(), mapeamos los datos en el orden exacto de los encabezados.
+    // Esto garantiza que cada valor caiga en la columna correcta.
+    const rows = data.map(item => {
+      return headers.map(header => item[header]);
+    });
+    sheet.addRows(rows);
+    // --- FIN DE LA CORRECCIÓN ---
+  };
+
+  addSheetWithStyles('Consolidado', allDataForExport);
+
   const farmaciaGroups = rawData.reduce((groups, item) => {
     const farmacia = item.farmacia || 'Sin Farmacia';
     if (!groups[farmacia]) {
@@ -53,17 +88,24 @@ const exportToExcel = (rawData: InventoryItem[], settings: ClassificationSetting
     return groups;
   }, {} as { [key: string]: any[] });
 
-  const workbook = XLSX.utils.book_new();
-
-  const consolidatedSheet = XLSX.utils.json_to_sheet(allDataForExport);
-  XLSX.utils.book_append_sheet(workbook, consolidatedSheet, 'Consolidado');
-
   Object.entries(farmaciaGroups).forEach(([farmacia, data]) => {
-    const sheet = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(workbook, sheet, farmacia);
+    addSheetWithStyles(farmacia, data);
   });
+  
+  const createEmptySheetWithHeaders = (sheetName: string, headers: string[]) => {
+    const sheet = workbook.addWorksheet(sheetName);
+    const headerRow = sheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+        cell.style = headerStyle;
+    });
+  };
 
-  XLSX.writeFile(workbook, filename);
+  createEmptySheetWithHeaders('Compras', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'DE', 'PARA']);
+  createEmptySheetWithHeaders('Movimientos', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'FA', 'Q1', 'Q2', 'NENA', 'ZAKI', 'VITAL CLINICO']);
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  saveAs(blob, filename);
 };
 
 const ExportButtons: React.FC<ExportButtonsProps> = ({ rawData, settings }) => {
