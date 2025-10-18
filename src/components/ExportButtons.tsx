@@ -67,14 +67,10 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       cell.style = headerStyle;
     });
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // En lugar de usar Object.values(), mapeamos los datos en el orden exacto de los encabezados.
-    // Esto garantiza que cada valor caiga en la columna correcta.
     const rows = data.map(item => {
       return headers.map(header => item[header]);
     });
     sheet.addRows(rows);
-    // --- FIN DE LA CORRECCIÓN ---
   };
 
   addSheetWithStyles('Consolidado', allDataForExport);
@@ -100,8 +96,16 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     });
   };
 
-  createEmptySheetWithHeaders('Compras', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'DE', 'PARA']);
-  createEmptySheetWithHeaders('Movimientos', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'FA', 'Q1', 'Q2', 'NENA', 'Zakipharma', 'VitalClinic']);
+  // --- INICIO DE LA MODIFICACIÓN ---
+  // Se invirtieron los encabezados de las hojas "Compras" y "Movimientos".
+  
+  // La hoja "Compras" ahora tiene los encabezados que antes eran de "Movimientos".
+  createEmptySheetWithHeaders('Compras', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'FA', 'Q1', 'Q2', 'NENA', 'Zakipharma', 'VitalClinic']);
+  
+  // La hoja "Movimientos" ahora tiene los encabezados que antes eran de "Compras".
+  createEmptySheetWithHeaders('Movimientos', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'DE', 'PARA']);
+  
+  // --- FIN DE LA MODIFICACIÓN ---
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
