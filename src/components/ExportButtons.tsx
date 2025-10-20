@@ -12,7 +12,13 @@ interface ExportButtonsProps {
 const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationSettings, filename: string) => {
   const workbook = new ExcelJS.Workbook();
 
-  // Esta función está perfecta, no necesita cambios.
+  // Función para redondear un número a dos decimales
+  const roundToTwoDecimals = (value: number) => {
+    if (typeof value !== 'number' || isNaN(value)) return 0;
+    return Math.round(value * 100) / 100;
+  };
+
+  // Esta función mapea el item de inventario a una fila para Excel
   const mapItemToRow = (item: InventoryItem) => {
     const sugeridoColumns: { [key: string]: any } = {};
     const promedioColumns: { [key: string]: any } = {};
@@ -40,7 +46,8 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       ...promedioColumns,
       'Moneda factor de cambio': item.monedaFactorCambio,
       'Costo Unitario': item.costoUnitario,
-      '%Util.': item.utilidad,
+      // APLICACIÓN DEL REDONDEO: Redondeamos la utilidad a un máximo de 2 decimales.
+      '%Util.': roundToTwoDecimals(item.utilidad),
       'Precio máximo': item.precioMaximo,
     };
   };
@@ -85,7 +92,9 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
   }, {} as { [key: string]: any[] });
 
   Object.entries(farmaciaGroups).forEach(([farmacia, data]) => {
-    addSheetWithStyles(farmacia, data);
+    // Reemplazamos caracteres inválidos para el nombre de la hoja
+    const validFarmaciaName = farmacia.replace(/[/\\?*[\]]/g, ' ').substring(0, 31);
+    addSheetWithStyles(validFarmaciaName, data);
   });
   
   const createEmptySheetWithHeaders = (sheetName: string, headers: string[]) => {
@@ -96,16 +105,10 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     });
   };
 
-  // --- INICIO DE LA MODIFICACIÓN ---
-  // Se invirtieron los encabezados de las hojas "Compras" y "Movimientos".
-  
-  // La hoja "Compras" ahora tiene los encabezados que antes eran de "Movimientos".
+  // Se crearon las hojas "Compras" y "Movimientos" (con los encabezados invertidos según el código original)
   createEmptySheetWithHeaders('Compras', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'FA', 'Q1', 'Q2', 'NENA', 'Zakipharma', 'VitalClinic']);
-  
-  // La hoja "Movimientos" ahora tiene los encabezados que antes eran de "Compras".
   createEmptySheetWithHeaders('Movimientos', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'DE', 'PARA']);
   
-  // --- FIN DE LA MODIFICACIÓN ---
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
