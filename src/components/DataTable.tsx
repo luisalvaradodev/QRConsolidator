@@ -85,8 +85,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
       { key: 'existenciaActual', label: 'Stock Total', isNumeric: true, minWidth: '120px' },
       { key: 'cantidad', label: 'Vendido 60d', isNumeric: true, minWidth: '120px' },
       { key: 'clasificacion', label: 'Clasificación', minWidth: '130px' },
-      // --- MODIFICACIÓN: Ancho de columna ajustado ---
-      { key: 'cantidadConsolidada', label: 'Cantidad Consolidada', isNumeric: true, minWidth: '250px' }, 
+      { key: 'cantidadConsolidada', label: 'Cantidad Consolidada', isNumeric: true, minWidth: '280px' }, 
     ];
     settings.periodos.forEach(p => {
       baseColumns.push({ key: `sugerido${p}d`, label: `Sugerido ${p}d`, isNumeric: true, minWidth: '120px' });
@@ -273,11 +272,22 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
                             const cantExceso = item.clasificacion === 'Exceso' ? item.cantidadConsolidada : 0;
                             const cantNoVendido = item.clasificacion === 'No vendido' ? item.cantidadConsolidada : 0;
                             const cantOK = item.clasificacion === 'OK' ? item.cantidadConsolidada : 0;
-                    
-                            // 4. Construir el string de texto para copiar
+                            
+                            // 4. Create pharmacy breakdown string
+                            const farmacyStockString = Object.entries(item.existenciasPorFarmacia)
+                              .map(([farmacia, stock]) => `${farmacia}: ${stock || 0}`)
+                              .join(' | ');
+
+                            // 5. [NUEVO] Create Total Stock string
+                            const totalStockString = `Stock Total: ${item.existenciaActual.toLocaleString()}`;
+                            
+                            // 6. Construir el string de texto para copiar
                             const summaryText = `
 Producto: ${item.nombres.join(', ')}
 ID: ${item.codigo}
+---
+Stock por Farmacia: ${farmacyStockString}
+${totalStockString}
 ---
 Clasificación: ${item.clasificacion}
 ---
@@ -289,17 +299,28 @@ Cant. OK (Sugerido): ${cantOK.toLocaleString()}
 ${sugeridosString}
                             `.trim().replace(/^\s+/gm, ''); // Limpiar espacios
                     
-                            // 5. Construir el JSX para mostrar en la celda
+                            // 7. Construir el JSX para mostrar en la celda
                             const displayJsx = (
                               <div className="text-left text-xs whitespace-pre-wrap leading-relaxed py-1">
-                                <div className={`font-bold text-sm ${
+                                
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  {farmacyStockString}
+                                </div>
+
+                                {/* ESTA ES LA LÍNEA QUE FALTABA */}
+                                <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">
+                                  {totalStockString}
+                                </div>
+
+                                <div className={`font-bold text-sm mt-1 ${
                                   item.clasificacion === 'Falla' ? 'text-red-600 dark:text-red-400' :
                                   item.clasificacion === 'Exceso' ? 'text-yellow-600 dark:text-yellow-400' :
                                   item.clasificacion === 'No vendido' ? 'text-slate-600 dark:text-slate-400' :
                                   'text-green-600 dark:text-green-400'
                                 }`}>
+                                  {/* Este es el número de ACCIÓN */}
                                   {item.cantidadConsolidada.toLocaleString()} 
-                                  <span className="font-medium text-slate-600 dark:text-slate-400"> (${item.clasificacion})</span>
+                                  <span className="font-medium text-slate-600 dark:text-slate-400"> ({item.clasificacion})</span>
                                 </div>
                                 <div className="mt-1 font-mono text-slate-700 dark:text-slate-300">
                                   ID: {item.codigo}
@@ -310,7 +331,7 @@ ${sugeridosString}
                               </div>
                             );
                             
-                            // 6. Devolver el componente CopyableCell
+                            // 8. Devolver el componente CopyableCell
                             return (
                               <CopyableCell textToCopy={summaryText}>
                                 {displayJsx}

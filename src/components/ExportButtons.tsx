@@ -82,9 +82,20 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     const cantNoVendido = item.clasificacion === 'No vendido' ? cantidadConsolidada : 0;
     const cantOK = item.clasificacion === 'OK' ? cantidadConsolidada : 0;
 
-    // 5. Construir el string de texto (usamos \n para saltos de línea en Excel)
+    // 5. Create pharmacy breakdown string
+    const farmacyStockString = Object.entries(item.existenciasPorFarmacia)
+      .map(([farmacia, stock]) => `${farmacia}: ${stock || 0}`)
+      .join(' | ');
+      
+    // 6. [NUEVO] Create Total Stock string
+    const totalStockString = `Stock Total: ${item.existenciaActual.toLocaleString()}`;
+
+    // 7. Construir el string de texto (usamos \n para saltos de línea en Excel)
     const summaryText = `Producto: ${item.nombre}
 ID: ${item.codigo}
+---
+Stock por Farmacia: ${farmacyStockString}
+${totalStockString} 
 ---
 Clasificación: ${item.clasificacion}
 ---
