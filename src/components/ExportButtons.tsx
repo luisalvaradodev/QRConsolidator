@@ -58,6 +58,45 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       promedioColumns[`Prom. ${p}d`] = Math.ceil(item[`promedio${p}d`] || 0);
     });
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+      
+    // 1. Calcular la cantidad consolidada
+    const cantidadConsolidada = calcularCantidadConsolidada(item, settings);
+    
+    // 2. Obtener todas las sugerencias positivas
+    const sugeridosList = settings.periodos
+      .map(p => ({ 
+          dias: p, 
+          cantidad: item[`sugerido${p}d`] || 0 
+      }))
+      .filter(s => s.cantidad > 0);
+    
+    // 3. Formatear la lista de sugerencias
+    const sugeridosString = sugeridosList.length > 0
+      ? `Sugeridos: [${sugeridosList.map(s => `${s.cantidad} (p/${s.dias}d)`).join(', ')}]`
+      : "Sugeridos: [Ninguno]";
+    
+    // 4. Obtener las cantidades específicas por clasificación
+    const cantFalla = item.clasificacion === 'Falla' ? cantidadConsolidada : 0;
+    const cantExceso = item.clasificacion === 'Exceso' ? cantidadConsolidada : 0;
+    const cantNoVendido = item.clasificacion === 'No vendido' ? cantidadConsolidada : 0;
+    const cantOK = item.clasificacion === 'OK' ? cantidadConsolidada : 0;
+
+    // 5. Construir el string de texto (usamos \n para saltos de línea en Excel)
+    const summaryText = `Producto: ${item.nombre}
+ID: ${item.codigo}
+---
+Clasificación: ${item.clasificacion}
+---
+Cant. Falla: ${cantFalla.toLocaleString()}
+Cant. Exceso: ${cantExceso.toLocaleString()}
+Cant. No Vendido: ${cantNoVendido.toLocaleString()}
+Cant. OK (Sugerido): ${cantOK.toLocaleString()}
+---
+${sugeridosString}
+    `;
+    // --- FIN DE LA MODIFICACIÓN ---
+
     return {
       'Código': item.codigo,
       'Nombre del producto': item.nombre,
@@ -67,7 +106,7 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       'Existencia Actual': item.existenciaActual,
       'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
-      'Cantidad Consolidada': calcularCantidadConsolidada(item, settings), // NUEVA COLUMNA
+      'Cantidad Consolidada': summaryText, // <-- VALOR MODIFICADO
       'Exceso': item.excesoUnidades,
       ...sugeridoColumns,
       ...promedioColumns,
@@ -100,6 +139,20 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     headerRow.eachCell((cell) => {
       cell.style = headerStyle;
     });
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Estilos para la columna 'Cantidad Consolidada'
+    const colIndex = headers.indexOf('Cantidad Consolidada') + 1; // ExcelJS es 1-based
+    if (colIndex > 0) {
+      const col = sheet.getColumn(colIndex);
+      col.width = 60; // Ancho generoso
+      col.alignment = { 
+        wrapText: true,       // Habilitar ajuste de texto
+        vertical: 'top',      // Alinear arriba
+        horizontal: 'left'  // Alinear a la izquierda
+      };
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     const rows = data.map(item => {
       return headers.map(header => item[header]);

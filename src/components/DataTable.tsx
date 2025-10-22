@@ -30,8 +30,8 @@ const CopyableCell: React.FC<CopyableCellProps> = ({ textToCopy, children }) => 
       <button
         onClick={handleCopy}
         className="
-          absolute right-0 top-1/2 -translate-y-1/2 p-1 rounded-md bg-slate-200/50 dark:bg-slate-700/50
-          opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-200
+         absolute right-0 top-1/2 -translate-y-1/2 p-1 rounded-md bg-slate-200/50 dark:bg-slate-700/50
+         opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-200
         "
         aria-label="Copiar al portapapeles"
       >
@@ -85,7 +85,8 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
       { key: 'existenciaActual', label: 'Stock Total', isNumeric: true, minWidth: '120px' },
       { key: 'cantidad', label: 'Vendido 60d', isNumeric: true, minWidth: '120px' },
       { key: 'clasificacion', label: 'Clasificación', minWidth: '130px' },
-      { key: 'cantidadConsolidada', label: 'Cantidad Consolidada', isNumeric: true, minWidth: '160px' }, // NUEVA COLUMNA
+      // --- MODIFICACIÓN: Ancho de columna ajustado ---
+      { key: 'cantidadConsolidada', label: 'Cantidad Consolidada', isNumeric: true, minWidth: '250px' }, 
     ];
     settings.periodos.forEach(p => {
       baseColumns.push({ key: `sugerido${p}d`, label: `Sugerido ${p}d`, isNumeric: true, minWidth: '120px' });
@@ -251,17 +252,73 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
                           case 'existenciaActual': return <CopyableCell textToCopy={item.existenciaActual.toString()}><div className="text-sm font-semibold">{item.existenciaActual.toLocaleString()}</div></CopyableCell>;
                           case 'cantidad': return <CopyableCell textToCopy={item.cantidad.toString()}><div className="text-sm text-slate-600 dark:text-slate-300">{item.cantidad.toLocaleString()}</div></CopyableCell>;
                           case 'clasificacion': return <CopyableCell textToCopy={item.clasificacion}><span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${item.clasificacion === 'Falla' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' : item.clasificacion === 'Exceso' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300' : item.clasificacion === 'No vendido' ? 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300' : 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300'}`}>{item.clasificacion}</span></CopyableCell>;
-                          case 'cantidadConsolidada': // NUEVA COLUMNA
-                            return <CopyableCell textToCopy={item.cantidadConsolidada.toString()}>
-                              <div className={`text-sm font-bold ${
-                                item.clasificacion === 'Falla' ? 'text-red-600 dark:text-red-400' :
-                                item.clasificacion === 'Exceso' ? 'text-yellow-600 dark:text-yellow-400' :
-                                item.clasificacion === 'No vendido' ? 'text-slate-600 dark:text-slate-400' :
-                                'text-green-600 dark:text-green-400'
-                              }`}>
-                                {item.cantidadConsolidada.toLocaleString()}
+                          
+                          // --- INICIO DE LA MODIFICACIÓN ---
+                          case 'cantidadConsolidada': {
+                            // 1. Obtener todas las sugerencias positivas
+                            const sugeridosList = settings.periodos
+                              .map(p => ({ 
+                                  dias: p, 
+                                  cantidad: item[`sugerido${p}d`] || 0 
+                              }))
+                              .filter(s => s.cantidad > 0);
+                            
+                            // 2. Formatear la lista de sugerencias
+                            const sugeridosString = sugeridosList.length > 0
+                              ? `Sugeridos: [${sugeridosList.map(s => `${s.cantidad} (p/${s.dias}d)`).join(', ')}]`
+                              : "Sugeridos: [Ninguno]";
+                            
+                            // 3. Obtener las cantidades específicas por clasificación
+                            const cantFalla = item.clasificacion === 'Falla' ? item.cantidadConsolidada : 0;
+                            const cantExceso = item.clasificacion === 'Exceso' ? item.cantidadConsolidada : 0;
+                            const cantNoVendido = item.clasificacion === 'No vendido' ? item.cantidadConsolidada : 0;
+                            const cantOK = item.clasificacion === 'OK' ? item.cantidadConsolidada : 0;
+                    
+                            // 4. Construir el string de texto para copiar
+                            const summaryText = `
+Producto: ${item.nombres.join(', ')}
+ID: ${item.codigo}
+---
+Clasificación: ${item.clasificacion}
+---
+Cant. Falla: ${cantFalla.toLocaleString()}
+Cant. Exceso: ${cantExceso.toLocaleString()}
+Cant. No Vendido: ${cantNoVendido.toLocaleString()}
+Cant. OK (Sugerido): ${cantOK.toLocaleString()}
+---
+${sugeridosString}
+                            `.trim().replace(/^\s+/gm, ''); // Limpiar espacios
+                    
+                            // 5. Construir el JSX para mostrar en la celda
+                            const displayJsx = (
+                              <div className="text-left text-xs whitespace-pre-wrap leading-relaxed py-1">
+                                <div className={`font-bold text-sm ${
+                                  item.clasificacion === 'Falla' ? 'text-red-600 dark:text-red-400' :
+                                  item.clasificacion === 'Exceso' ? 'text-yellow-600 dark:text-yellow-400' :
+                                  item.clasificacion === 'No vendido' ? 'text-slate-600 dark:text-slate-400' :
+                                  'text-green-600 dark:text-green-400'
+                                }`}>
+                                  {item.cantidadConsolidada.toLocaleString()} 
+                                  <span className="font-medium text-slate-600 dark:text-slate-400"> (${item.clasificacion})</span>
+                                </div>
+                                <div className="mt-1 font-mono text-slate-700 dark:text-slate-300">
+                                  ID: {item.codigo}
+                                </div>
+                                <div className="mt-1 text-slate-600 dark:text-slate-400">
+                                  {sugeridosString}
+                                </div>
                               </div>
-                            </CopyableCell>;
+                            );
+                            
+                            // 6. Devolver el componente CopyableCell
+                            return (
+                              <CopyableCell textToCopy={summaryText}>
+                                {displayJsx}
+                              </CopyableCell>
+                            );
+                          }
+                          // --- FIN DE LA MODIFICACIÓN ---
+
                           default:
                             if (col.key.startsWith('sugerido')) return <CopyableCell textToCopy={(value || '0').toString()}><div className="text-sm font-bold text-blue-600 dark:text-blue-400">{value?.toLocaleString() || '0'}</div></CopyableCell>;
                             if (col.key.startsWith('promedio')) return <CopyableCell textToCopy={(value || 0).toFixed(1)}><div className="text-sm text-slate-500 dark:text-slate-400">{value?.toFixed(1) || '0.0'}</div></CopyableCell>;
