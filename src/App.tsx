@@ -313,7 +313,7 @@ function App() {
                 </div>
 
                 {/* Export */}
-                <ExportButtons rawData={rawData} settings={classificationSettings} />
+                <ExportButtons rawData={rawData} settings={classificationSettings} consolidatedData={dataToDisplay} />
               </div>
             </aside>
 

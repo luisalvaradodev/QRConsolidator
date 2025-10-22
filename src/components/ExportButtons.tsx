@@ -1,25 +1,31 @@
 import React from 'react';
 import { Download, FileSpreadsheet } from 'lucide-react';
-import { InventoryItem, ClassificationSettings } from '../types/inventory';
+// --- MODIFICACIÓN: Importar ambos tipos ---
+import { InventoryItem, ConsolidatedInventoryItem, ClassificationSettings } from '../types/inventory';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
 interface ExportButtonsProps {
   rawData: InventoryItem[];
+  consolidatedData: ConsolidatedInventoryItem[]; // <-- Prop de la corrección anterior
   settings: ClassificationSettings;
 }
 
-const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationSettings, filename: string) => {
+// --- INICIO: Función de exportación modificada ---
+const exportToExcel = async (
+  rawData: InventoryItem[],
+  consolidatedData: ConsolidatedInventoryItem[], // <-- Parámetro de la corrección anterior
+  settings: ClassificationSettings,
+  filename: string
+) => {
   const workbook = new ExcelJS.Workbook();
 
-  // Función para redondear un número a dos decimales
   const roundToTwoDecimals = (value: number) => {
     if (typeof value !== 'number' || isNaN(value)) return 0;
     return Math.round(value * 100) / 100;
   };
 
-  // Función para calcular cantidad consolidada basada en la clasificación
-  const calcularCantidadConsolidada = (item: InventoryItem, settings: ClassificationSettings) => {
+  const calcularCantidadConsolidada = (item: InventoryItem | ConsolidatedInventoryItem, settings: ClassificationSettings) => {
     const promedioDiario = item.cantidad / 60;
     
     switch (item.clasificacion) {
@@ -30,11 +36,11 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       case 'No vendido':
         return item.existenciaActual;
       case 'OK':
-        // Para OK, calculamos si hay necesidad de comprar para el período mínimo
         const sugerenciasPositivas = settings.periodos
           .map(days => {
             const required = promedioDiario * days;
-            const suggestion = required - item.existenciaActual;
+            const suggestion = (required - item.existenciaActual);
+            // Corregido: item[`sugerido${days}d`] no existe en el item crudo, hay que calcularlo
             return Math.max(0, Math.ceil(suggestion));
           })
           .filter(s => s > 0);
@@ -44,8 +50,8 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     }
   };
 
-  // Esta función mapea el item de inventario a una fila para Excel
-  const mapItemToRow = (item: InventoryItem) => {
+  // --- Mapper para items CONSOLIDADOS (Hoja 'Consolidado') ---
+  const mapConsolidatedItemToRow = (item: ConsolidatedInventoryItem) => {
     const sugeridoColumns: { [key: string]: any } = {};
     const promedioColumns: { [key: string]: any } = {};
     const sortedPeriodos = [...settings.periodos].sort((a, b) => a - b);
@@ -58,40 +64,29 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       promedioColumns[`Prom. ${p}d`] = Math.ceil(item[`promedio${p}d`] || 0);
     });
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-      
-    // 1. Calcular la cantidad consolidada
-    const cantidadConsolidada = calcularCantidadConsolidada(item, settings);
-    
-    // 2. Obtener todas las sugerencias positivas
     const sugeridosList = settings.periodos
-      .map(p => ({ 
-          dias: p, 
-          cantidad: item[`sugerido${p}d`] || 0 
-      }))
+      .map(p => ({ dias: p, cantidad: item[`sugerido${p}d`] || 0 }))
       .filter(s => s.cantidad > 0);
     
-    // 3. Formatear la lista de sugerencias
+    // Usamos \n para saltos de línea en Excel
     const sugeridosString = sugeridosList.length > 0
-      ? `Sugeridos: [${sugeridosList.map(s => `${s.cantidad} (p/${s.dias}d)`).join(', ')}]`
+      ? `Sugeridos:\n${sugeridosList.map(s => ` - ${s.cantidad} (p/${s.dias}d)`).join('\n')}`
       : "Sugeridos: [Ninguno]";
     
-    // 4. Obtener las cantidades específicas por clasificación
-    const cantFalla = item.clasificacion === 'Falla' ? cantidadConsolidada : 0;
-    const cantExceso = item.clasificacion === 'Exceso' ? cantidadConsolidada : 0;
-    const cantNoVendido = item.clasificacion === 'No vendido' ? cantidadConsolidada : 0;
-    const cantOK = item.clasificacion === 'OK' ? cantidadConsolidada : 0;
+    const cantFalla = item.clasificacion === 'Falla' ? item.cantidadConsolidada : 0;
+    const cantExceso = item.clasificacion === 'Exceso' ? item.cantidadConsolidada : 0;
+    const cantNoVendido = item.clasificacion === 'No vendido' ? item.cantidadConsolidada : 0;
+    const cantOK = item.clasificacion === 'OK' ? item.cantidadConsolidada : 0;
 
-    // 5. Create pharmacy breakdown string
     const farmacyStockString = Object.entries(item.existenciasPorFarmacia)
       .map(([farmacia, stock]) => `${farmacia}: ${stock || 0}`)
       .join(' | ');
       
-    // 6. [NUEVO] Create Total Stock string
     const totalStockString = `Stock Total: ${item.existenciaActual.toLocaleString()}`;
+    const totalAComprar = item.cantidadConsolidada;
 
-    // 7. Construir el string de texto (usamos \n para saltos de línea en Excel)
-    const summaryText = `Producto: ${item.nombre}
+    // --- REVERSIÓN: Este es el texto que irá en la celda ---
+    const summaryText = `Producto: ${item.nombres.join(', ')}
 ID: ${item.codigo}
 ---
 Stock por Farmacia: ${farmacyStockString}
@@ -99,14 +94,66 @@ ${totalStockString}
 ---
 Clasificación: ${item.clasificacion}
 ---
-Cant. Falla: ${cantFalla.toLocaleString()}
-Cant. Exceso: ${cantExceso.toLocaleString()}
-Cant. No Vendido: ${cantNoVendido.toLocaleString()}
-Cant. OK (Sugerido): ${cantOK.toLocaleString()}
+TOTAL A COMPRAR (Acción): ${totalAComprar.toLocaleString()}
+---
+Desglose de Acción:
+ - Cant. Falla: ${cantFalla.toLocaleString()}
+ - Cant. Exceso: ${cantExceso.toLocaleString()}
+ - Cant. No Vendido: ${cantNoVendido.toLocaleString()}
+ - Cant. OK (Sugerido): ${cantOK.toLocaleString()}
 ---
 ${sugeridosString}
     `;
-    // --- FIN DE LA MODIFICACIÓN ---
+
+    return {
+      'Código': item.codigo,
+      'Nombre del producto': item.nombres.join(', '),
+      'Marca': item.marcas.join(', '),
+      'Departamento': item.departamentos.join(', '),
+      'Farmacia': 'Consolidado',
+      'Existencia Actual': item.existenciaActual,
+      'Cant. Vendida 60 días': item.cantidad,
+      'Clasificación': item.clasificacion,
+      // --- REVERSIÓN: El valor de la celda es el texto completo ---
+      'Cantidad Consolidada': summaryText,
+      // ---
+      'Exceso': item.excesoUnidades,
+      ...sugeridoColumns,
+      ...promedioColumns,
+      'Moneda factor de cambio': item.monedaFactorCambio,
+      'Costo Unitario': item.costoUnitario,
+      '%Util.': roundToTwoDecimals(item.utilidad),
+      'Precio máximo': item.precioMaximo,
+    };
+  };
+
+  // --- Mapper para items CRUDOS (Hojas por farmacia) ---
+  const mapRawItemToRow = (item: InventoryItem) => {
+    const sugeridoColumns: { [key: string]: any } = {};
+    const promedioColumns: { [key: string]: any } = {};
+    const sortedPeriodos = [...settings.periodos].sort((a, b) => a - b);
+
+    sortedPeriodos.forEach(p => {
+      sugeridoColumns[`Sugerido ${p}d`] = item[`sugerido${p}d`] || 0;
+    });
+
+    sortedPeriodos.forEach(p => {
+      promedioColumns[`Prom. ${p}d`] = Math.ceil(item[`promedio${p}d`] || 0);
+    });
+
+    const totalStockString = `Stock Total: ${item.existenciaActual.toLocaleString()} (en ${item.farmacia})`;
+    const totalAComprar = calcularCantidadConsolidada(item, settings);
+
+    // --- REVERSIÓN: Este es el texto que irá en la celda ---
+    const summaryText = `Producto: ${item.nombre}
+ID: ${item.codigo}
+---
+${totalStockString}
+---
+Clasificación: ${item.clasificacion}
+---
+TOTAL A COMPRAR (Acción): ${totalAComprar.toLocaleString()}
+    `;
 
     return {
       'Código': item.codigo,
@@ -117,19 +164,20 @@ ${sugeridosString}
       'Existencia Actual': item.existenciaActual,
       'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
-      'Cantidad Consolidada': summaryText, // <-- VALOR MODIFICADO
+      // --- REVERSIÓN: El valor de la celda es el texto completo ---
+      'Cantidad Consolidada': summaryText,
+      // ---
       'Exceso': item.excesoUnidades,
       ...sugeridoColumns,
       ...promedioColumns,
       'Moneda factor de cambio': item.monedaFactorCambio,
       'Costo Unitario': item.costoUnitario,
-      // APLICACIÓN DEL REDONDEO: Redondeamos la utilidad a un máximo de 2 decimales.
       '%Util.': roundToTwoDecimals(item.utilidad),
       'Precio máximo': item.precioMaximo,
     };
   };
+  // --- FIN DE LOS MAPPERS ---
 
-  const allDataForExport = rawData.map(mapItemToRow);
 
   const headerStyle: Partial<ExcelJS.Style> = {
     font: { bold: true, color: { argb: 'FF000000' } },
@@ -140,6 +188,7 @@ ${sugeridosString}
     },
   };
 
+  // --- FUNCIÓN 'addSheetWithStyles' MODIFICADA (REVERTIDA) ---
   const addSheetWithStyles = (sheetName: string, data: any[]) => {
     const sheet = workbook.addWorksheet(sheetName);
     if (data.length === 0) return;
@@ -150,43 +199,42 @@ ${sugeridosString}
     headerRow.eachCell((cell) => {
       cell.style = headerStyle;
     });
-
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Estilos para la columna 'Cantidad Consolidada'
-    const colIndex = headers.indexOf('Cantidad Consolidada') + 1; // ExcelJS es 1-based
-    if (colIndex > 0) {
-      const col = sheet.getColumn(colIndex);
-      col.width = 60; // Ancho generoso
-      col.alignment = { 
-        wrapText: true,       // Habilitar ajuste de texto
-        vertical: 'top',      // Alinear arriba
-        horizontal: 'left'  // Alinear a la izquierda
-      };
+    
+    // --- Lógica para la columna 'Cantidad Consolidada' ---
+    const consolidatedColIndex = headers.indexOf('Cantidad Consolidada');
+    if (consolidatedColIndex > -1) {
+      const col = sheet.getColumn(consolidatedColIndex + 1); // +1 porque ExcelJS es 1-based
+      col.width = 60; // Ancho grande para el texto
+      col.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' }; // Formato de texto
     }
-    // --- FIN DE LA MODIFICACIÓN ---
-
-    const rows = data.map(item => {
-      return headers.map(header => item[header]);
+    
+    // --- Lógica de añadir filas (simple, sin comentarios) ---
+    data.forEach(item => {
+      const rowData = headers.map(header => item[header]);
+      sheet.addRow(rowData);
     });
-    sheet.addRows(rows);
   };
+  // --- FIN DE LA FUNCIÓN 'addSheetWithStyles' MODIFICADA ---
 
-  addSheetWithStyles('Consolidado', allDataForExport);
+  // 1. Hoja 'Consolidado' (usa los datos CONSOLIDADOS que ve el usuario)
+  const consolidatedDataForExport = consolidatedData.map(mapConsolidatedItemToRow);
+  addSheetWithStyles('Consolidado', consolidatedDataForExport);
 
+  // 2. Hojas por Farmacia (usa los datos CRUDOS como antes)
   const farmaciaGroups = rawData.reduce((groups, item) => {
     const farmacia = item.farmacia || 'Sin Farmacia';
     if (!groups[farmacia]) {
       groups[farmacia] = [];
     }
-    groups[farmacia].push(mapItemToRow(item));
+    groups[farmacia].push(mapRawItemToRow(item)); // <-- Usa el mapper de items crudos
     return groups;
   }, {} as { [key: string]: any[] });
 
   Object.entries(farmaciaGroups).forEach(([farmacia, data]) => {
-    // Reemplazamos caracteres inválidos para el nombre de la hoja
     const validFarmaciaName = farmacia.replace(/[/\\?*[\]]/g, ' ').substring(0, 31);
     addSheetWithStyles(validFarmaciaName, data);
   });
+  
   
   const createEmptySheetWithHeaders = (sheetName: string, headers: string[]) => {
     const sheet = workbook.addWorksheet(sheetName);
@@ -196,20 +244,20 @@ ${sugeridosString}
     });
   };
 
-  // Se crearon las hojas "Compras" y "Movimientos" (con los encabezados invertidos según el código original)
   createEmptySheetWithHeaders('Compras', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'FA', 'Q1', 'Q2', 'NENA', 'Zakipharma', 'VitalClinic']);
   createEmptySheetWithHeaders('Movimientos', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'DE', 'PARA']);
   
-
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   saveAs(blob, filename);
 };
+// --- FIN: Función de exportación modificada ---
 
-const ExportButtons: React.FC<ExportButtonsProps> = ({ rawData, settings }) => {
+
+const ExportButtons: React.FC<ExportButtonsProps> = ({ rawData, consolidatedData, settings }) => {
   const handleExportExcel = () => {
     const timestamp = new Date().toISOString().split('T')[0];
-    exportToExcel(rawData, settings, `inventario_consolidado_${timestamp}.xlsx`);
+    exportToExcel(rawData, consolidatedData, settings, `inventario_consolidado_${timestamp}.xlsx`);
   };
 
   if (rawData.length === 0) {
@@ -232,7 +280,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ rawData, settings }) => {
         <span>Exportar a Excel</span>
       </button>
       <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">
-        {rawData.length.toLocaleString()} productos
+        {consolidatedData.length.toLocaleString()} productos consolidados
       </p>
     </div>
   );

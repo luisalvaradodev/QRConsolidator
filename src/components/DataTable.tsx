@@ -85,6 +85,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
       { key: 'existenciaActual', label: 'Stock Total', isNumeric: true, minWidth: '120px' },
       { key: 'cantidad', label: 'Vendido 60d', isNumeric: true, minWidth: '120px' },
       { key: 'clasificacion', label: 'Clasificación', minWidth: '130px' },
+      // Dejamos el ancho para que quepa la información
       { key: 'cantidadConsolidada', label: 'Cantidad Consolidada', isNumeric: true, minWidth: '280px' }, 
     ];
     settings.periodos.forEach(p => {
@@ -252,7 +253,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
                           case 'cantidad': return <CopyableCell textToCopy={item.cantidad.toString()}><div className="text-sm text-slate-600 dark:text-slate-300">{item.cantidad.toLocaleString()}</div></CopyableCell>;
                           case 'clasificacion': return <CopyableCell textToCopy={item.clasificacion}><span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${item.clasificacion === 'Falla' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' : item.clasificacion === 'Exceso' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300' : item.clasificacion === 'No vendido' ? 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300' : 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300'}`}>{item.clasificacion}</span></CopyableCell>;
                           
-                          // --- INICIO DE LA MODIFICACIÓN ---
+                          // --- INICIO DE LA MODIFICACIÓN (REVERSIÓN) ---
                           case 'cantidadConsolidada': {
                             // 1. Obtener todas las sugerencias positivas
                             const sugeridosList = settings.periodos
@@ -278,7 +279,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateCha
                               .map(([farmacia, stock]) => `${farmacia}: ${stock || 0}`)
                               .join(' | ');
 
-                            // 5. [NUEVO] Create Total Stock string
+                            // 5. Create Total Stock string
                             const totalStockString = `Stock Total: ${item.existenciaActual.toLocaleString()}`;
                             
                             // 6. Construir el string de texto para copiar
@@ -307,7 +308,6 @@ ${sugeridosString}
                                   {farmacyStockString}
                                 </div>
 
-                                {/* ESTA ES LA LÍNEA QUE FALTABA */}
                                 <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">
                                   {totalStockString}
                                 </div>
@@ -338,7 +338,7 @@ ${sugeridosString}
                               </CopyableCell>
                             );
                           }
-                          // --- FIN DE LA MODIFICACIÓN ---
+                          // --- FIN DE LA MODIFICACIÓN (REVERSIÓN) ---
 
                           default:
                             if (col.key.startsWith('sugerido')) return <CopyableCell textToCopy={(value || '0').toString()}><div className="text-sm font-bold text-blue-600 dark:text-blue-400">{value?.toLocaleString() || '0'}</div></CopyableCell>;
