@@ -18,6 +18,32 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     return Math.round(value * 100) / 100;
   };
 
+  // Función para calcular cantidad consolidada basada en la clasificación
+  const calcularCantidadConsolidada = (item: InventoryItem, settings: ClassificationSettings) => {
+    const promedioDiario = item.cantidad / 60;
+    
+    switch (item.clasificacion) {
+      case 'Falla':
+        return Math.max(0, Math.ceil((promedioDiario * settings.diasFalla) - item.existenciaActual));
+      case 'Exceso':
+        return item.excesoUnidades;
+      case 'No vendido':
+        return item.existenciaActual;
+      case 'OK':
+        // Para OK, calculamos si hay necesidad de comprar para el período mínimo
+        const sugerenciasPositivas = settings.periodos
+          .map(days => {
+            const required = promedioDiario * days;
+            const suggestion = required - item.existenciaActual;
+            return Math.max(0, Math.ceil(suggestion));
+          })
+          .filter(s => s > 0);
+        return sugerenciasPositivas.length > 0 ? Math.min(...sugerenciasPositivas) : 0;
+      default:
+        return 0;
+    }
+  };
+
   // Esta función mapea el item de inventario a una fila para Excel
   const mapItemToRow = (item: InventoryItem) => {
     const sugeridoColumns: { [key: string]: any } = {};
@@ -41,6 +67,7 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       'Existencia Actual': item.existenciaActual,
       'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
+      'Cantidad Consolidada': calcularCantidadConsolidada(item, settings), // NUEVA COLUMNA
       'Exceso': item.excesoUnidades,
       ...sugeridoColumns,
       ...promedioColumns,
