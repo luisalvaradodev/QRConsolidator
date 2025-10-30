@@ -63,6 +63,34 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     },
   };
 
+  const applySheetSettings = (sheet: ExcelJS.Worksheet, headers: string[]) => {
+    // Congelar la primera fila (inmovilización)
+    sheet.views = [
+      {
+        state: 'frozen',
+        ySplit: 1,
+        xSplit: 0,
+        activeCell: 'A2',
+        showGridLines: true
+      }
+    ];
+
+    // Aplicar filtros a todas las columnas
+    if (headers.length > 0) {
+      sheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: headers.length }
+      };
+    }
+
+    // Configurar formato de número fracción para la columna "Código"
+    const codigoIndex = headers.findIndex(header => header === 'Código');
+    if (codigoIndex !== -1) {
+      const codigoColumn = sheet.getColumn(codigoIndex + 1);
+      codigoColumn.numFmt = '# ?/?'; // Formato de fracción
+    }
+  };
+
   const addSheetWithStyles = (sheetName: string, data: any[]) => {
     const sheet = workbook.addWorksheet(sheetName);
     if (data.length === 0) return;
@@ -78,16 +106,30 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       return headers.map(header => item[header]);
     });
     sheet.addRows(rows);
+
+    // Aplicar configuraciones a la hoja
+    applySheetSettings(sheet, headers);
   };
 
   addSheetWithStyles('Consolidado', allDataForExport);
 
   const farmaciaGroups = rawData.reduce((groups, item) => {
-    const farmacia = item.farmacia || 'Sin Farmacia';
+    let farmacia = item.farmacia || 'Sin Farmacia';
+    
+    // Renombrar Farmanaco como FA
+    if (farmacia === 'Farmanaco') {
+      farmacia = 'FA';
+    }
+    
     if (!groups[farmacia]) {
       groups[farmacia] = [];
     }
-    groups[farmacia].push(mapItemToRow(item));
+    
+    // Aplicar el renombrado también en los datos
+    const mappedItem = mapItemToRow(item);
+    mappedItem['Farmacia'] = farmacia;
+    groups[farmacia].push(mappedItem);
+    
     return groups;
   }, {} as { [key: string]: any[] });
 
@@ -103,9 +145,13 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     headerRow.eachCell((cell) => {
         cell.style = headerStyle;
     });
+    
+    // Aplicar configuraciones a la hoja
+    applySheetSettings(sheet, headers);
   };
 
   // Se crearon las hojas "Compras" y "Movimientos" (con los encabezados invertidos según el código original)
+  // Nota: En la hoja Compras, 'FA' ya está incluido en los headers
   createEmptySheetWithHeaders('Compras', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'FA', 'Q1', 'Q2', 'NENA', 'Zakipharma', 'VitalClinic']);
   createEmptySheetWithHeaders('Movimientos', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'DE', 'PARA']);
   
