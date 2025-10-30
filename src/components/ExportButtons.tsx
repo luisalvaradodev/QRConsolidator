@@ -18,6 +18,14 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     return Math.round(value * 100) / 100;
   };
 
+  // Función para reemplazar Farmanaco por FA en cualquier campo
+  const replaceFarmanaco = (value: any): any => {
+    if (typeof value === 'string') {
+      return value.replace(/Farmanaco/g, 'FA');
+    }
+    return value;
+  };
+
   // Esta función mapea el item de inventario a una fila para Excel
   const mapItemToRow = (item: InventoryItem) => {
     const sugeridoColumns: { [key: string]: any } = {};
@@ -32,12 +40,18 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
       promedioColumns[`Prom. ${p}d`] = Math.ceil(item[`promedio${p}d`] || 0);
     });
 
+    // Aplicar reemplazo de Farmanaco por FA en todos los campos relevantes
+    const farmacia = replaceFarmanaco(item.farmacia) || 'Sin Farmacia';
+    const nombre = replaceFarmanaco(item.nombre);
+    const marca = replaceFarmanaco(item.marca);
+    const departamento = replaceFarmanaco(item.departamento);
+
     return {
       'Código': item.codigo,
-      'Nombre del producto': item.nombre,
-      'Marca': item.marca,
-      'Departamento': item.departamento,
-      'Farmacia': item.farmacia,
+      'Nombre del producto': nombre,
+      'Marca': marca,
+      'Departamento': departamento,
+      'Farmacia': farmacia,
       'Existencia Actual': item.existenciaActual,
       'Cant. Vendida 60 días': item.cantidad,
       'Clasificación': item.clasificacion,
@@ -92,7 +106,9 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
   };
 
   const addSheetWithStyles = (sheetName: string, data: any[]) => {
-    const sheet = workbook.addWorksheet(sheetName);
+    // Aplicar reemplazo de Farmanaco en el nombre de la hoja también
+    const processedSheetName = replaceFarmanaco(sheetName);
+    const sheet = workbook.addWorksheet(processedSheetName);
     if (data.length === 0) return;
 
     const headers = Object.keys(data[0]);
@@ -114,20 +130,14 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
   addSheetWithStyles('Consolidado', allDataForExport);
 
   const farmaciaGroups = rawData.reduce((groups, item) => {
-    let farmacia = item.farmacia || 'Sin Farmacia';
-    
-    // Renombrar Farmanaco como FA
-    if (farmacia === 'Farmanaco') {
-      farmacia = 'FA';
-    }
+    let farmacia = replaceFarmanaco(item.farmacia) || 'Sin Farmacia';
     
     if (!groups[farmacia]) {
       groups[farmacia] = [];
     }
     
-    // Aplicar el renombrado también en los datos
+    // Usar el item ya mapeado que incluye el reemplazo de Farmanaco
     const mappedItem = mapItemToRow(item);
-    mappedItem['Farmacia'] = farmacia;
     groups[farmacia].push(mappedItem);
     
     return groups;
