@@ -4,6 +4,8 @@ import { InventoryItem, ClassificationSettings } from '../types/inventory';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
+
+
 interface ExportButtonsProps {
   rawData: InventoryItem[];
   settings: ClassificationSettings;
@@ -68,12 +70,13 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
 
   const allDataForExport = rawData.map(mapItemToRow);
 
-  const headerStyle: Partial<ExcelJS.Style> = {
+  // Estilo de encabezado amarillo (el que ya tenías)
+  const yellowHeaderStyle: Partial<ExcelJS.Style> = {
     font: { bold: true, color: { argb: 'FF000000' } },
     fill: {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFFFFF00' },
+      fgColor: { argb: 'FFFFFF00' }, // Amarillo
     },
   };
 
@@ -98,13 +101,17 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     }
 
     // Configurar formato de número fracción para la columna "Código"
-    const codigoIndex = headers.findIndex(header => header === 'Código');
+    const codigoIndex = headers.findIndex(header => header.toUpperCase() === 'CÓDIGO'); // Buscamos en mayúsculas por si acaso
     if (codigoIndex !== -1) {
       const codigoColumn = sheet.getColumn(codigoIndex + 1);
       codigoColumn.numFmt = '# ?/?'; // Formato de fracción
     }
   };
 
+  /**
+   * Esta función añade una hoja de cálculo con datos (Consolidado y Farmacias)
+   * REGLA: Solo los primeros 5 encabezados van en mayúsculas.
+   */
   const addSheetWithStyles = (sheetName: string, data: any[]) => {
     // Aplicar reemplazo de Farmanaco en el nombre de la hoja también
     const processedSheetName = replaceFarmanaco(sheetName);
@@ -112,10 +119,16 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     if (data.length === 0) return;
 
     const headers = Object.keys(data[0]);
-    const headerRow = sheet.addRow(headers);
+    
+    // REGLA "CONSOLIDADO": Solo los primeros 5 encabezados en mayúsculas
+    const processedHeaders = headers.map((header, index) => {
+      return index < 5 ? header.toUpperCase() : header;
+    });
+
+    const headerRow = sheet.addRow(processedHeaders);
 
     headerRow.eachCell((cell) => {
-      cell.style = headerStyle;
+      cell.style = yellowHeaderStyle; // Aplicamos el estilo amarillo
     });
 
     const rows = data.map(item => {
@@ -123,12 +136,17 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     });
     sheet.addRows(rows);
 
-    // Aplicar configuraciones a la hoja
-    applySheetSettings(sheet, headers);
+    // Aplicar configuraciones a la hoja (filtros, freeze, formato código)
+    // Usamos processedHeaders para que el applySheetSettings funcione correctamente
+    applySheetSettings(sheet, processedHeaders);
   };
 
+  // --- Creación de hojas de datos ---
+  
+  // 1. Hoja "Consolidado" (usa addSheetWithStyles)
   addSheetWithStyles('Consolidado', allDataForExport);
 
+  // 2. Hojas por Farmacia (usa addSheetWithStyles)
   const farmaciaGroups = rawData.reduce((groups, item) => {
     let farmacia = replaceFarmanaco(item.farmacia) || 'Sin Farmacia';
     
@@ -149,21 +167,54 @@ const exportToExcel = async (rawData: InventoryItem[], settings: ClassificationS
     addSheetWithStyles(validFarmaciaName, data);
   });
   
+  
+  /**
+   * Esta función crea una hoja vacía con encabezados (Compras, Movimientos)
+   * REGLA: Todos los encabezados van en mayúsculas.
+   */
   const createEmptySheetWithHeaders = (sheetName: string, headers: string[]) => {
     const sheet = workbook.addWorksheet(sheetName);
-    const headerRow = sheet.addRow(headers);
+    
+    // REGLA "COMPRAS" Y "MOVIMIENTOS": Todos los encabezados en mayúsculas
+    const processedHeaders = headers.map(header => header.toUpperCase());
+    
+    const headerRow = sheet.addRow(processedHeaders);
+    
     headerRow.eachCell((cell) => {
-        cell.style = headerStyle;
+        cell.style = yellowHeaderStyle; // Aplicamos el estilo amarillo
     });
     
-    // Aplicar configuraciones a la hoja
-    applySheetSettings(sheet, headers);
+    // Aplicar configuraciones a la hoja (filtros, freeze, formato código)
+    applySheetSettings(sheet, processedHeaders);
   };
 
-  // Se crearon las hojas "Compras" y "Movimientos" (con los encabezados invertidos según el código original)
-  // Nota: En la hoja Compras, 'FA' ya está incluido en los headers
-  createEmptySheetWithHeaders('Compras', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'FA', 'Q1', 'Q2', 'NENA', 'Zakipharma', 'VitalClinic']);
-  createEmptySheetWithHeaders('Movimientos', ['Código', 'Nombre del producto', 'Marca', 'CANTIDAD', 'DE', 'PARA']);
+  // --- Creación de hojas vacías ---
+
+  // 3. Hoja "Compras" (con nuevas columnas)
+  createEmptySheetWithHeaders('Compras', [
+    'Código', 
+    'Nombre del producto', 
+    'Marca', 
+    'CANTIDAD', 
+    'FA', 
+    'Q1', 
+    'Q2', 
+    'NENA', 
+    'Zakipharma', 
+    'VitalClinic',
+    'ÚLTIMO COSTO', // Nueva columna
+    'RECEPCIÓN'     // Nueva columna
+  ]);
+  
+  // 4. Hoja "Movimientos"
+  createEmptySheetWithHeaders('Movimientos', [
+    'Código', 
+    'Nombre del producto', 
+    'Marca', 
+    'CANTIDAD', 
+    'DE', 
+    'PARA'
+  ]);
   
 
   const buffer = await workbook.xlsx.writeBuffer();
