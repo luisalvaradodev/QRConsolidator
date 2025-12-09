@@ -8,37 +8,42 @@ interface SearchBarProps {
 
 const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, onSearchChange }) => {
   return (
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+    <div className="relative group">
+      {/* Icono de búsqueda */}
+      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+        <Search className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
       </div>
       
+      {/* Input */}
       <input
         type="text"
-        placeholder="Buscar por código o nombre del producto..."
+        placeholder="Buscar código o nombre..."
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
         className="
-          w-full pl-10 pr-10 py-2.5 
-          border border-slate-300 bg-white text-slate-900 placeholder-slate-400 
-          dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:placeholder-slate-500 
-          rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm
-          transition-colors
+          w-full pl-9 pr-8 py-1.5 
+          bg-slate-100 dark:bg-slate-800 
+          border border-transparent focus:bg-white dark:focus:bg-slate-900
+          border-slate-200 dark:border-slate-700
+          text-slate-900 dark:text-slate-100 placeholder-slate-500 
+          rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+          transition-all
         "
       />
       
+      {/* Botón de limpiar (X) */}
       {searchTerm && (
-        <button
-          onClick={() => onSearchChange('')}
+        <button 
+          onClick={() => onSearchChange('')} 
           className="
-            absolute inset-y-0 right-0 pr-3 flex items-center 
+            absolute inset-y-0 right-0 pr-2 flex items-center 
             text-slate-400 hover:text-slate-600 
-            dark:text-slate-500 dark:hover:text-slate-300 
+            dark:text-slate-500 dark:hover:text-slate-300
             transition-colors
           "
-          aria-label="Clear search"
+          aria-label="Limpiar búsqueda"
         >
-          <X className="h-5 w-5" />
+          <X className="h-3 w-3" />
         </button>
       )}
     </div>

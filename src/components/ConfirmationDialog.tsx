@@ -1,57 +1,39 @@
 import React from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 interface ConfirmationDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  title: string;
-  message: string;
-  confirmText?: string;
-  cancelText?: string;
+  isOpen: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; cancelText?: string;
 }
 
-const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  title,
-  message,
-  confirmText = "Confirmar",
-  cancelText = "Cancelar",
-}) => {
+const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 animate-fade-in-up">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-          aria-label="Cerrar"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="p-6 text-center">
-          <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{title}</h3>
-          <p className="text-slate-600 dark:text-slate-300 mb-6">{message}</p>
-
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={onClose}
-              className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-slate-400 transition-colors"
-            >
-              {cancelText}
-            </button>
-            <button
-              onClick={onConfirm}
-              className="px-6 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-            >
-              {confirmText}
-            </button>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start pt-[20vh] justify-center z-[100] p-4 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-lg shadow-2xl border-2 border-red-500 dark:border-red-600 overflow-hidden scale-in-95 animate-in duration-200">
+        {/* Header de Alerta */}
+        <div className="bg-red-50 dark:bg-red-900/30 px-4 py-3 flex items-center gap-3 border-b border-red-100 dark:border-red-800/50">
+          <div className="shrink-0 p-2 bg-red-100 dark:bg-red-800 rounded-full">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-200" />
           </div>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-red-700 dark:text-red-300 leading-none">{title}</h3>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 text-slate-600 dark:text-slate-300 text-sm">
+          <p>{message}</p>
+        </div>
+
+        {/* Footer de Acciones Técnico */}
+        <div className="bg-slate-50 dark:bg-slate-950 px-4 py-3 flex gap-2 justify-end border-t border-slate-200 dark:border-slate-800">
+          <button onClick={onClose}
+            className="px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">
+            {cancelText}
+          </button>
+          <button onClick={onConfirm}
+            className="px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wider text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm">
+            {confirmText}
+          </button>
         </div>
       </div>
     </div>

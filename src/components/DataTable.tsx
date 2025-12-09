@@ -1,50 +1,42 @@
-import React, { useMemo, useState, useRef, useEffect, ReactNode } from 'react';
-// Asegúrate de importar los nuevos iconos: Copy y Check
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings2, Copy, Check } from 'lucide-react';
+import React, { useMemo, useState, useEffect, ReactNode } from 'react';
+import { ChevronUp, ChevronDown, Settings2, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ConsolidatedInventoryItem, TableState, ClassificationSettings } from '../types/inventory';
 
-// --- NUEVO COMPONENTE REUTILIZABLE PARA COPIAR ---
-interface CopyableCellProps {
-  textToCopy: string;
-  children: ReactNode;
-}
+// --- CELL COMPONENT (Ayuda a alinear contenido) ---
+const TableCell = ({ children, align = 'left', className = '' }: { children: ReactNode, align?: 'left' | 'right', className?: string }) => (
+  <div className={`px-2 py-1 flex items-center h-full ${align === 'right' ? 'justify-end' : 'justify-start'} ${className}`}>
+    {children}
+  </div>
+);
 
-const CopyableCell: React.FC<CopyableCellProps> = ({ textToCopy, children }) => {
+// --- COMPACT COPY COMPONENT ---
+const CopyableCell: React.FC<{ textToCopy: string; children: ReactNode }> = ({ textToCopy, children }) => {
   const [isCopied, setIsCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (isCopied) return; // Evitar múltiples clicks
+  
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Evita que el click se propague a la fila si hay eventos ahí
     try {
       await navigator.clipboard.writeText(textToCopy);
       setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000); // Resetear el ícono después de 2 segundos
+      setTimeout(() => setIsCopied(false), 1500);
     } catch (err) {
-      console.error('Error al copiar al portapapeles:', err);
+      console.error("Failed to copy", err);
     }
   };
 
   return (
-    // 'group' permite que el hover sobre este div afecte a sus hijos (el botón de copiar)
-    <div className="group relative w-full h-full flex items-center">
-      <div className="flex-grow">{children}</div>
-      <button
-        onClick={handleCopy}
-        className="
-          absolute right-0 top-1/2 -translate-y-1/2 p-1 rounded-md bg-slate-200/50 dark:bg-slate-700/50
-          opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-200
-        "
-        aria-label="Copiar al portapapeles"
+    <div className="group relative w-full h-full flex items-center cursor-default">
+      <div className="truncate w-full">{children}</div>
+      <button 
+        onClick={handleCopy} 
+        className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-100 dark:bg-slate-700 p-0.5 rounded shadow-sm z-10 border border-slate-200 dark:border-slate-600"
+        title="Copiar"
       >
-        {isCopied ? (
-          <Check className="w-4 h-4 text-green-500" />
-        ) : (
-          <Copy className="w-4 h-4 text-slate-500 dark:text-slate-300" />
-        )}
+        {isCopied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-slate-400" />}
       </button>
     </div>
   );
 };
-
 
 interface DataTableProps {
   data: ConsolidatedInventoryItem[];
@@ -53,202 +45,244 @@ interface DataTableProps {
   settings: ClassificationSettings;
 }
 
-const TooltipCell: React.FC<{ text: string; lineClamp?: number }> = ({ text, lineClamp = 1 }) => (
-  <div title={text} className={lineClamp === 1 ? 'truncate' : `line-clamp-${lineClamp}`}>
-    {text}
-  </div>
-);
-
 const DataTable: React.FC<DataTableProps> = ({ data, tableState, onTableStateChange, settings }) => {
   const { currentPage, itemsPerPage, sortColumn, sortDirection } = tableState;
-  const topScrollRef = useRef<HTMLDivElement>(null);
-  const bottomScrollRef = useRef<HTMLDivElement>(null);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
 
+  // --- Lógica de Farmacias Únicas ---
   const farmaciasUnicas = useMemo(() => {
     const farmaciasSet = new Set<string>();
-    data.forEach(item => {
-      Object.keys(item.existenciasPorFarmacia).forEach(farmacia => farmaciasSet.add(farmacia));
-    });
+    data.forEach(item => Object.keys(item.existenciasPorFarmacia).forEach(f => farmaciasSet.add(f)));
     return Array.from(farmaciasSet).sort();
   }, [data]);
 
+  // --- Definición de Columnas (Estilo Compacto) ---
   const allColumns = useMemo(() => {
     const baseColumns = [
-      { key: 'codigo', label: 'Código', minWidth: '120px' },
-      { key: 'nombres', label: 'Nombre del Producto', minWidth: '320px' },
-      { key: 'marcas', label: 'Marca', minWidth: '180px' },
-      { key: 'departamentos', label: 'Departamento', minWidth: '180px' },
-      { key: 'existenciaActual', label: 'Stock Total', isNumeric: true, minWidth: '120px' },
-      { key: 'cantidad', label: 'Vendido 60d', isNumeric: true, minWidth: '120px' },
-      { key: 'clasificacion', label: 'Clasificación', minWidth: '130px' },
+      { key: 'codigo', label: 'CÓDIGO', minWidth: '90px', isSticky: true },
+      { key: 'nombres', label: 'PRODUCTO', minWidth: '220px' },
+      { key: 'marcas', label: 'MARCA', minWidth: '100px' },
+      { key: 'clasificacion', label: 'ESTADO', minWidth: '90px' },
+      { key: 'existenciaActual', label: 'STOCK', isNumeric: true, minWidth: '80px' },
+      { key: 'cantidad', label: 'VTA 60D', isNumeric: true, minWidth: '80px' },
+      { key: 'departamentos', label: 'DEPTO', minWidth: '120px' },
     ];
     settings.periodos.forEach(p => {
-      baseColumns.push({ key: `sugerido${p}d`, label: `Sugerido ${p}d`, isNumeric: true, minWidth: '120px' });
+      baseColumns.push({ key: `sugerido${p}d`, label: `SUG.${p}D`, isNumeric: true, minWidth: '70px' });
     });
     settings.periodos.forEach(p => {
-      baseColumns.push({ key: `promedio${p}d`, label: `Promedio ${p}d`, isNumeric: true, minWidth: '120px' });
+      baseColumns.push({ key: `promedio${p}d`, label: `PROM.${p}D`, isNumeric: true, minWidth: '70px' });
     });
     farmaciasUnicas.forEach(farmacia => {
-      baseColumns.push({ key: farmacia, label: `Stock ${farmacia}`, isNumeric: true, minWidth: '120px' });
+      baseColumns.push({ key: farmacia, label: farmacia.toUpperCase().substring(0, 10), isNumeric: true, minWidth: '80px' });
     });
     return baseColumns;
   }, [settings.periodos, farmaciasUnicas]);
 
+  // --- Inicializar columnas visibles ---
   useEffect(() => {
-    setVisibleColumns(allColumns.reduce((acc, col) => ({ ...acc, [col.key]: true }), {}));
+    setVisibleColumns(prev => 
+      Object.keys(prev).length === 0 
+        ? allColumns.reduce((acc, col) => ({ ...acc, [col.key]: true }), {}) 
+        : prev
+    );
   }, [allColumns]);
 
-  const displayedColumns = useMemo(() => {
-    return allColumns.filter(col => visibleColumns[col.key]);
-  }, [allColumns, visibleColumns]);
+  const displayedColumns = useMemo(() => allColumns.filter(col => visibleColumns[col.key]), [allColumns, visibleColumns]);
 
   const handleToggleColumn = (key: string) => {
     setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleSort = (column: keyof ConsolidatedInventoryItem | string) => {
+  // --- Ordenamiento ---
+  const handleSort = (column: string) => {
     const newDirection = (sortColumn === column && sortDirection === 'asc') ? 'desc' : 'asc';
     onTableStateChange({ ...tableState, sortColumn: column as any, sortDirection: newDirection, currentPage: 1 });
   };
-  
-  const handlePageChange = (page: number) => onTableStateChange({ ...tableState, currentPage: page });
 
-  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onTableStateChange({ ...tableState, itemsPerPage: Number(e.target.value), currentPage: 1 });
-  };
-  
   const sortedData = useMemo(() => {
     if (!sortColumn) return data;
     return [...data].sort((a, b) => {
       const isFarmaciaColumn = farmaciasUnicas.includes(sortColumn as string);
       const aVal = isFarmaciaColumn ? a.existenciasPorFarmacia[sortColumn as string] || 0 : a[sortColumn as keyof ConsolidatedInventoryItem];
       const bVal = isFarmaciaColumn ? b.existenciasPorFarmacia[sortColumn as string] || 0 : b[sortColumn as keyof ConsolidatedInventoryItem];
-      if (typeof aVal === 'number' && typeof bVal === 'number') return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      
       const aStr = Array.isArray(aVal) ? aVal.join(', ') : String(aVal || '');
       const bStr = Array.isArray(bVal) ? bVal.join(', ') : String(bVal || '');
       return sortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
   }, [data, sortColumn, sortDirection, farmaciasUnicas]);
-  
+
+  // --- Paginación ---
   const totalItems = sortedData.length;
   const displayItemsPerPage = itemsPerPage === 0 ? totalItems : itemsPerPage;
   const totalPages = itemsPerPage === 0 ? 1 : Math.ceil(totalItems / displayItemsPerPage);
-
-  const paginatedData = useMemo(() => sortedData.slice(
-    (currentPage - 1) * displayItemsPerPage, 
-    currentPage * displayItemsPerPage
-  ), [sortedData, currentPage, displayItemsPerPage]);
-
-  const SortIcon = ({ column }: { column: string }) => {
-    if (sortColumn !== column) return <div className="w-4 h-4 opacity-0 group-hover:opacity-50" />;
-    return sortDirection === 'asc' 
-      ? <ChevronUp className="w-4 h-4 text-blue-500 dark:text-blue-400" /> 
-      : <ChevronDown className="w-4 h-4 text-blue-500 dark:text-blue-400" />;
-  };
-
-  useEffect(() => {
-    const topScroll = topScrollRef.current;
-    const bottomScroll = bottomScrollRef.current;
-    if (!topScroll || !bottomScroll) return;
-    const handleTopScroll = () => bottomScroll.scrollLeft = topScroll.scrollLeft;
-    const handleBottomScroll = () => topScroll.scrollLeft = bottomScroll.scrollLeft;
-    topScroll.addEventListener('scroll', handleTopScroll);
-    bottomScroll.addEventListener('scroll', handleBottomScroll);
-    return () => {
-      topScroll.removeEventListener('scroll', handleTopScroll);
-      bottomScroll.removeEventListener('scroll', handleBottomScroll);
-    };
-  }, []);
+  
+  const paginatedData = useMemo(() => {
+    if (itemsPerPage === 0) return sortedData;
+    return sortedData.slice((currentPage - 1) * displayItemsPerPage, currentPage * displayItemsPerPage);
+  }, [sortedData, currentPage, displayItemsPerPage]);
 
   if (data.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-slate-500 dark:text-slate-400 text-lg">No hay productos que coincidan.</p>
+        <p className="text-slate-400 text-sm">No hay datos para mostrar</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Scrollbar superior y selector de columnas */}
-      <div className="flex-shrink-0 bg-slate-50 dark:bg-slate-800 p-2 border-b border-slate-200 dark:border-slate-700">
-        <div className="flex justify-between items-center">
-          <div ref={topScrollRef} className="overflow-x-auto flex-grow scrollbar-hide">
-            <div style={{ width: `${displayedColumns.length * 160}px`, height: '1px' }}></div>
-          </div>
-          <div className="relative pl-4">
-            <button onClick={() => setIsColumnSelectorOpen(!isColumnSelectorOpen)} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700" title="Seleccionar columnas">
-              <Settings2 className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+      
+      {/* Barra superior compacta para selector de columnas */}
+      <div className="flex justify-end px-2 py-1 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+         <div className="relative">
+            <button 
+              onClick={() => setIsColumnSelectorOpen(!isColumnSelectorOpen)} 
+              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500" 
+              title="Columnas"
+            >
+              <Settings2 className="w-4 h-4" />
             </button>
             {isColumnSelectorOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 border rounded-lg shadow-xl z-20">
-                <div className="p-3 border-b"><h4 className="font-semibold text-sm">Mostrar Columnas</h4></div>
-                <div className="max-h-80 overflow-y-auto p-2">
+              <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-xl z-50">
+                <div className="p-2 border-b border-slate-200 dark:border-slate-700"><h4 className="font-semibold text-xs text-slate-700 dark:text-slate-200">Mostrar Columnas</h4></div>
+                <div className="max-h-60 overflow-y-auto p-1">
                   {allColumns.map(col => (
-                    <label key={col.key} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
-                      <input type="checkbox" checked={visibleColumns[col.key] || false} onChange={() => handleToggleColumn(col.key)} className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"/>
-                      <span className="text-sm">{col.label}</span>
+                    <label key={col.key} className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={visibleColumns[col.key] || false} 
+                        onChange={() => handleToggleColumn(col.key)} 
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-slate-600 dark:text-slate-300">{col.label}</span>
                     </label>
                   ))}
                 </div>
               </div>
             )}
           </div>
-        </div>
       </div>
-      
-      {/* Contenedor de la tabla */}
-      <div ref={bottomScrollRef} className="flex-1 overflow-auto">
-        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-          <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10">
+
+      {/* Contenedor Scrollable */}
+      <div className="flex-1 overflow-auto scrollbar-thin relative">
+        <table className="min-w-full border-collapse">
+          <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 shadow-sm">
             <tr>
-              {displayedColumns.map(col => (
-                <th key={col.key} onClick={() => handleSort(col.key)} className="group px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 border-r last:border-r-0" style={{ minWidth: col.minWidth }}>
-                  <div className={`flex items-center gap-2 ${col.isNumeric ? 'justify-end' : ''}`}>
-                    <span>{col.label}</span><SortIcon column={col.key} />
+              {displayedColumns.map((col) => (
+                <th 
+                  key={col.key} 
+                  onClick={() => handleSort(col.key)}
+                  className={`
+                    sticky top-0 bg-slate-100 dark:bg-slate-800
+                    p-0 border-r border-b border-slate-300 dark:border-slate-600 
+                    text-[10px] font-bold text-slate-600 dark:text-slate-300 select-none cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors
+                    ${(col as any).isSticky ? 'sticky left-0 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]' : ''}
+                  `}
+                  style={{ minWidth: col.minWidth, width: col.minWidth }}
+                >
+                  <div className={`px-2 py-1.5 flex items-center gap-1 ${col.isNumeric ? 'justify-end' : 'justify-start'}`}>
+                    {col.label}
+                    {sortColumn === col.key && (
+                      sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                    )}
                   </div>
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-700">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
             {paginatedData.map((item, index) => (
-              <tr key={`${item.codigo}-${index}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                {displayedColumns.map(col => (
-                  <td key={col.key} className={`px-4 py-2.5 border-r last:border-r-0 ${col.isNumeric ? 'text-right' : ''}`}>
-                    {(() => {
-                        const value = (item as any)[col.key];
-                        switch (col.key) {
-                          case 'codigo': return <CopyableCell textToCopy={item.codigo}><div className="font-mono text-sm text-blue-600 dark:text-blue-400 font-medium">{item.codigo}</div></CopyableCell>;
-                          case 'nombres': return <CopyableCell textToCopy={item.nombres.join(', ')}><div className="text-sm font-medium text-slate-900 dark:text-slate-100"><TooltipCell text={item.nombres.join(', ')} lineClamp={2} /></div></CopyableCell>;
-                          case 'marcas': return <CopyableCell textToCopy={item.marcas.join(', ')}><div className="text-sm text-slate-600 dark:text-slate-300"><TooltipCell text={item.marcas.join(', ')} /></div></CopyableCell>;
-                          case 'departamentos': return <CopyableCell textToCopy={item.departamentos.join(', ')}><div className="text-sm text-slate-600 dark:text-slate-300"><TooltipCell text={item.departamentos.join(', ')} /></div></CopyableCell>;
-                          case 'existenciaActual': return <CopyableCell textToCopy={item.existenciaActual.toString()}><div className="text-sm font-semibold">{item.existenciaActual.toLocaleString()}</div></CopyableCell>;
-                          case 'cantidad': return <CopyableCell textToCopy={item.cantidad.toString()}><div className="text-sm text-slate-600 dark:text-slate-300">{item.cantidad.toLocaleString()}</div></CopyableCell>;
-                          case 'clasificacion': return <CopyableCell textToCopy={item.clasificacion}><span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${item.clasificacion === 'Falla' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' : item.clasificacion === 'Exceso' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300' : item.clasificacion === 'No vendido' ? 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300' : 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300'}`}>{item.clasificacion}</span></CopyableCell>;
-                          default:
-                            if (col.key.startsWith('sugerido')) return <CopyableCell textToCopy={(value || '0').toString()}><div className="text-sm font-bold text-blue-600 dark:text-blue-400">{value?.toLocaleString() || '0'}</div></CopyableCell>;
-                            if (col.key.startsWith('promedio')) return <CopyableCell textToCopy={(value || 0).toFixed(1)}><div className="text-sm text-slate-500 dark:text-slate-400">{value?.toFixed(1) || '0.0'}</div></CopyableCell>;
-                            if (farmaciasUnicas.includes(col.key)) {
-                              const stock = item.existenciasPorFarmacia[col.key] || 0;
-                              return <CopyableCell textToCopy={stock.toString()}><div className="text-sm font-medium">{stock.toLocaleString()}</div></CopyableCell>;
-                            }
-                            return <CopyableCell textToCopy={String(value)}><div className="text-sm">{String(value)}</div></CopyableCell>;
-                        }
-                    })()}
-                  </td>
-                ))}
+              <tr 
+                key={`${item.codigo}-${index}`} 
+                className="group hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors odd:bg-white even:bg-slate-50/30 dark:odd:bg-slate-900 dark:even:bg-slate-800/30"
+              >
+                {displayedColumns.map((col) => {
+                  const val = (item as any)[col.key];
+                  let content;
+                  
+                  if (col.key === 'codigo') {
+                    content = <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">{val}</span>;
+                  } else if (col.key === 'clasificacion') {
+                    const color = val === 'Falla' ? 'text-red-600 bg-red-50 dark:bg-red-900/30' : 
+                                  val === 'Exceso' ? 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/30' :
+                                  val === 'No vendido' ? 'text-slate-500' : 'text-green-600 bg-green-50 dark:bg-green-900/30';
+                    content = <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold border border-transparent ${color}`}>{val}</span>;
+                  } else if (col.isNumeric) {
+                    if (farmaciasUnicas.includes(col.key)) {
+                       const stock = item.existenciasPorFarmacia[col.key] || 0;
+                       content = <span className={stock === 0 ? 'text-slate-300 dark:text-slate-600' : 'text-slate-700 dark:text-slate-200'}>{stock}</span>;
+                    } else if (col.key.startsWith('sugerido')) {
+                       content = <span className="font-bold text-blue-600 dark:text-blue-400">{val?.toLocaleString() || 0}</span>;
+                    } else {
+                       content = val?.toLocaleString();
+                    }
+                  } else {
+                    content = Array.isArray(val) ? val.join(', ') : val;
+                  }
+
+                  return (
+                    <td 
+                      key={col.key} 
+                      className={`
+                        p-0 border-r border-slate-200 dark:border-slate-700 text-xs tabular-nums
+                        ${(col as any).isSticky ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]' : ''}
+                      `}
+                    >
+                      <TableCell align={col.isNumeric ? 'right' : 'left'}>
+                        <CopyableCell textToCopy={String(val)}>{content}</CopyableCell>
+                      </TableCell>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      
-      {/* Paginación */}
-      <div className="bg-white dark:bg-slate-800 border-t px-6 py-4">
-        {/* ... (código de paginación sin cambios) ... */}
+
+      {/* Barra de Paginación Compacta */}
+      <div className="flex-shrink-0 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-3 py-1.5 flex justify-between items-center text-xs select-none">
+        <div className="flex items-center gap-4 text-slate-500">
+           <span>{totalItems.toLocaleString()} Items</span>
+           <select 
+             value={itemsPerPage} 
+             onChange={(e) => onTableStateChange({ ...tableState, itemsPerPage: Number(e.target.value), currentPage: 1 })}
+             className="bg-transparent border-none p-0 focus:ring-0 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer"
+           >
+             <option value="50">50 filas</option>
+             <option value="100">100 filas</option>
+             <option value="500">500 filas</option>
+             <option value="0">Todos</option>
+           </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={() => onTableStateChange({ ...tableState, currentPage: Math.max(1, currentPage - 1) })}
+            disabled={currentPage === 1}
+            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          >
+            <ChevronLeft className="w-3 h-3" />
+            Anterior
+          </button>
+          <span className="text-slate-600 dark:text-slate-400 px-2">
+             Pag {currentPage} / {totalPages}
+          </span>
+          <button 
+            onClick={() => onTableStateChange({ ...tableState, currentPage: Math.min(totalPages, currentPage + 1) })}
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          >
+            Siguiente
+            <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronDown, Search, XCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ChevronDown, Search, X, CheckSquare, Square } from 'lucide-react';
 import { FilterState, ConsolidatedInventoryItem } from '../types/inventory';
 
+// Definición de Props
 interface FilterPanelProps {
   data: ConsolidatedInventoryItem[];
   filters: FilterState;
@@ -17,6 +18,7 @@ interface FilterSectionProps {
   isSearchable?: boolean;
 }
 
+// --- COMPONENTE DE SECCIÓN COMPACTO ---
 const FilterSection: React.FC<FilterSectionProps> = ({ 
   title, 
   values, 
@@ -27,118 +29,125 @@ const FilterSection: React.FC<FilterSectionProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
+  // Lógica de filtrado
   const filteredValues = useMemo(() => {
     if (!isSearchable || !searchTerm) return values;
-    return values.filter(value => value.toLowerCase().includes(searchTerm.toLowerCase()));
+    return values.filter((v) => v.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [values, searchTerm, isSearchable]);
 
-  const allFilteredSelected = useMemo(() => {
-    return filteredValues.length > 0 && filteredValues.every(v => selected.includes(v));
-  }, [filteredValues, selected]);
-  
-  const someFilteredSelected = useMemo(() => {
-    return filteredValues.some(v => selected.includes(v)) && !allFilteredSelected;
-  }, [filteredValues, selected, allFilteredSelected]);
+  const allSelected = filteredValues.length > 0 && filteredValues.every((v) => selected.includes(v));
 
-  useEffect(() => {
-    if (selectAllCheckboxRef.current) {
-      selectAllCheckboxRef.current.indeterminate = someFilteredSelected;
-    }
-  }, [someFilteredSelected]);
-
-  const handleSelectAllToggle = () => {
-    if (allFilteredSelected) {
-      onChange(selected.filter(v => !filteredValues.includes(v)));
+  // Manejadores de eventos
+  const toggleAll = () => {
+    if (allSelected) {
+      onChange(selected.filter((v) => !filteredValues.includes(v)));
     } else {
       onChange([...new Set([...selected, ...filteredValues])]);
     }
   };
-  
-  const handleItemToggle = (value: string) => {
+
+  const toggleItem = (value: string) => {
     onChange(
       selected.includes(value) 
-        ? selected.filter(v => v !== value) 
+        ? selected.filter((v) => v !== value) 
         : [...selected, value]
     );
   };
 
   return (
-    <div className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+    <div className="border-b border-slate-300 dark:border-slate-700 last:border-b-0">
+      {/* Cabecera del Acordeón */}
       <button 
         onClick={() => setIsOpen(!isOpen)} 
-        className="w-full flex items-center justify-between p-3 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+        className="w-full flex items-center justify-between py-2 px-3 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
       >
-        <span className="font-semibold text-slate-800 dark:text-slate-200">{title}</span>
-        <div className="flex items-center space-x-2">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+          {title}
+        </span>
+        <div className="flex items-center gap-1">
           {selected.length > 0 && (
-            <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 text-xs font-medium px-2 py-0.5 rounded-full">
+            <span className="font-mono text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 rounded-sm">
               {selected.length}
             </span>
           )}
-          <ChevronDown className={`h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform duration-300 ${isOpen && "rotate-180"}`} />
+          <ChevronDown 
+            size={14} 
+            className={`text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} 
+          />
         </div>
       </button>
       
+      {/* Contenido Desplegable */}
       {isOpen && (
-        <div className="p-3 bg-slate-50/50 dark:bg-slate-800/20">
+        <div className="bg-white dark:bg-slate-950 pb-2">
+          {/* Barra de Búsqueda */}
           {isSearchable && (
-            <div className="relative mb-3">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
-              <input
-                type="text"
-                placeholder={`Buscar en ${title}...`}
-                value={searchTerm}
+            <div className="relative px-2 py-1.5 border-b border-slate-200 dark:border-slate-800">
+              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Buscar..." 
+                value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-7 pr-2 py-1 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
               />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
           )}
-          
-          <div className="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+
+          {/* Lista de Items */}
+          <div className="max-h-48 overflow-y-auto scrollbar-thin px-1 py-1 space-y-0.5">
             {values.length > 5 && (
-              <label className="flex items-center space-x-3 cursor-pointer py-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                <input 
-                  type="checkbox" 
-                  ref={selectAllCheckboxRef}
-                  checked={allFilteredSelected} 
-                  onChange={handleSelectAllToggle}
-                  className="h-4 w-4 text-blue-600 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-offset-0 focus:ring-2"
-                />
-                <span>{allFilteredSelected ? "Deseleccionar todo" : "Seleccionar todo"}</span>
-              </label>
+              <button 
+                onClick={toggleAll} 
+                className="flex items-center w-full text-left px-2 py-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-sm transition-colors"
+              >
+                {allSelected ? "Deseleccionar todo" : "Seleccionar todo"}
+              </button>
             )}
 
-            {filteredValues.map(value => (
-              <label 
-                key={value} 
-                className="flex items-center justify-between w-full space-x-3 cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-700/60 p-2 rounded-lg transition-colors"
-              >
-                <div className="flex items-center space-x-3 min-w-0">
-                  <input 
-                    type="checkbox" 
-                    checked={selected.includes(value)} 
-                    onChange={() => handleItemToggle(value)} 
-                    className="h-4 w-4 text-blue-600 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-offset-0 focus:ring-2"
-                  />
-                  
-                  <div className="relative group min-w-0">
-                    <span className="text-sm text-slate-700 dark:text-slate-300 block truncate">
+            {filteredValues.map((value) => {
+              const isSelected = selected.includes(value);
+              return (
+                <label 
+                  key={value} 
+                  className={`flex items-center justify-between px-2 py-1 rounded-sm cursor-pointer group transition-colors ${
+                    isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-slate-100 dark:hover:bg-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isSelected ? (
+                      <CheckSquare size={14} className="text-blue-600 dark:text-blue-500 shrink-0" />
+                    ) : (
+                      <Square size={14} className="text-slate-400 group-hover:text-slate-500 shrink-0" />
+                    )}
+                    <input 
+                      type="checkbox" 
+                      checked={isSelected} 
+                      onChange={() => toggleItem(value)} 
+                      className="hidden" 
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300 truncate" title={value}>
                       {value}
                     </span>
-                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max max-w-xs bg-slate-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
-                      {value}
-                    </div>
                   </div>
-                </div>
-                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md">
-                  {countMap.get(value)?.toLocaleString() || 0}
-                </span>
-              </label>
-            ))}
+                  <span className="font-mono text-[10px] text-slate-500 dark:text-slate-500 ml-2">
+                    {countMap.get(value) || 0}
+                  </span>
+                </label>
+              );
+            })}
+            
             {filteredValues.length === 0 && (
-              <p className="text-sm text-center text-slate-500 p-2">Sin resultados.</p>
+              <p className="text-xs text-slate-400 text-center py-2">Sin resultados</p>
             )}
           </div>
         </div>
@@ -147,7 +156,10 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   );
 };
 
+// --- COMPONENTE PRINCIPAL ---
 const FilterPanel: React.FC<FilterPanelProps> = ({ data, filters, onFilterChange }) => {
+  
+  // Hook personalizado para procesar los datos (Memoized)
   const useMemoizedFilterData = (field: keyof ConsolidatedInventoryItem | keyof ConsolidatedInventoryItem[]) => {
     return useMemo(() => {
       const values = new Set<string>();
@@ -155,6 +167,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ data, filters, onFilterChange
       
       data.forEach(item => {
         const itemValue = item[field as keyof ConsolidatedInventoryItem];
+        
         if (Array.isArray(itemValue)) {
           itemValue.forEach(v => {
             if(v) {
@@ -179,24 +192,15 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ data, filters, onFilterChange
   const departamentoData = useMemoizedFilterData('departamentos');
   const marcaData = useMemoizedFilterData('marcas');
   const clasificacionData = useMemoizedFilterData('clasificacion');
-
-  const clearAllFilters = () => onFilterChange({ 
-    farmacia: [], 
-    departamento: [], 
-    marca: [], 
-    clasificacion: [] 
-  });
-  
+   
   const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0);
 
-  if (data.length === 0) {
-    return null;
-  }
+  if (data.length === 0) return null;
 
   return (
-    <>
+    <div className="bg-white dark:bg-slate-950 rounded-md border border-slate-300 dark:border-slate-700 overflow-hidden shadow-sm">
       <FilterSection 
-        title="Clasificación" 
+        title="Estado" // Cambiado de "Clasificación" a "Estado" según el diseño nuevo
         values={clasificacionData.uniqueValues} 
         selected={filters.clasificacion} 
         onChange={(s) => onFilterChange({ ...filters, clasificacion: s })} 
@@ -228,17 +232,17 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ data, filters, onFilterChange
       />
       
       {hasActiveFilters && (
-        <div className="p-3 mt-2">
+        <div className="p-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-300 dark:border-slate-700">
           <button 
-            onClick={clearAllFilters} 
-            className="w-full flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-500 transition-colors font-semibold bg-slate-100 hover:bg-red-100 dark:bg-slate-700/50 dark:hover:bg-red-900/30 py-2 rounded-lg"
+            onClick={() => onFilterChange({ farmacia: [], departamento: [], marca: [], clasificacion: [] })} 
+            className="w-full flex items-center justify-center gap-1 text-xs font-semibold uppercase tracking-wider text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 py-1.5 rounded-sm transition-colors"
           >
-            <XCircle size={16} />
-            Limpiar todos los filtros
+            <X size={14} /> 
+            Limpiar Filtros
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

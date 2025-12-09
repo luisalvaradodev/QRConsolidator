@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Moon, Sun, Filter, Settings, Menu, X, Briefcase, RefreshCw } from 'lucide-react';
+import { Moon, Sun, Settings, RefreshCw, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import FileUploader from './components/FileUploader';
 import FilterPanel from './components/FilterPanel';
 import SearchBar from './components/SearchBar';
@@ -12,8 +12,10 @@ import { InventoryItem, ConsolidatedInventoryItem, FilterState, TableState, Clas
 import { consolidateData } from './utils/consolidationLogic';
 import { reprocessRawData } from './utils/fileProcessor';
 
+// --- COMPONENTS VISUALES ---
+
 const TextureBackground = () => (
-  <div className="fixed inset-0 -z-50 opacity-20 dark:opacity-30" 
+  <div className="fixed inset-0 -z-50 opacity-20 dark:opacity-30 pointer-events-none" 
        style={{ 
          backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 400 400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.95\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3CfeColorMatrix type=\'saturate\' values=\'0\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")'
        }} 
@@ -21,7 +23,7 @@ const TextureBackground = () => (
 );
 
 const StarryNight = () => (
-  <div className="fixed inset-0 -z-40 hidden dark:block">
+  <div className="fixed inset-0 -z-40 hidden dark:block pointer-events-none">
     <div className="absolute inset-0 bg-transparent" 
          style={{ 
            backgroundImage: 'radial-gradient(white 0.5px, transparent 0)', 
@@ -32,57 +34,72 @@ const StarryNight = () => (
   </div>
 );
 
+// --- HEADER COMPACTO ---
+
+interface HeaderProps {
+  isDarkMode: boolean;
+  toggleTheme: () => void;
+  hasData: boolean;
+  onResetClick: () => void;
+  isSidebarOpen: boolean;
+  toggleSidebar: () => void;
+}
+
 const CompactHeader = ({ 
   isDarkMode, 
   toggleTheme, 
   hasData, 
-  onResetClick 
-}: { 
-  isDarkMode: boolean; 
-  toggleTheme: () => void; 
-  hasData: boolean; 
-  onResetClick: () => void; 
-}) => (
-  <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 sticky top-0 z-50">
-    <div className="max-w-full mx-auto px-4 sm:px-6">
-      <div className="flex items-center justify-between h-14">
-        <div className="flex items-center space-x-3">
-          <img src="/q2.png" alt="Logo" className="h-10 w-10 rounded-full border-2 border-blue-500"/>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white">Grupo Quirófanos Farmacias</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Análisis de Inventario</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {hasData && (
-            <button
-              onClick={onResetClick}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
-                         bg-red-500 text-white hover:bg-red-600 
-                         focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-            >
-              <RefreshCw className="h-4 w-4" />
-              <span className="hidden sm:block">Reiniciar</span>
-            </button>
-          )}
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-          >
-            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
-        </div>
+  onResetClick, 
+  isSidebarOpen, 
+  toggleSidebar 
+}: HeaderProps) => (
+  <header className="h-10 bg-white dark:bg-slate-900 border-b border-slate-300 dark:border-slate-700 flex items-center justify-between px-4 select-none shrink-0 z-50 transition-colors duration-300">
+    <div className="flex items-center gap-3">
+      {hasData && (
+        <button 
+          onClick={toggleSidebar} 
+          className="text-slate-500 hover:text-blue-500 transition-colors focus:outline-none"
+          title={isSidebarOpen ? "Cerrar panel lateral" : "Abrir panel lateral"}
+        >
+          {isSidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+        </button>
+      )}
+      <div className="flex items-center gap-2">
+        <img src="/q2.png" alt="Logo" className="h-6 w-6 rounded-full border border-slate-300"/>
+        <h1 className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-tight">
+          GRUPO QUIRÓFANOS <span className="font-normal text-slate-500">| Inventario</span>
+        </h1>
       </div>
+    </div>
+    
+    <div className="flex items-center gap-3">
+      {hasData && (
+        <button 
+          onClick={onResetClick} 
+          className="text-xs font-medium text-red-500 hover:text-red-600 flex items-center gap-1 focus:outline-none transition-colors"
+        >
+          <RefreshCw size={14} /> Reiniciar
+        </button>
+      )}
+      <button 
+        onClick={toggleTheme} 
+        className="text-slate-500 hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors focus:outline-none"
+      >
+        {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+      </button>
     </div>
   </header>
 );
 
+// --- APP MAIN ---
+
 function App() {
+  // 1. Estados de Datos
   const [rawData, setRawData] = useState<InventoryItem[]>([]);
   const [consolidatedData, setConsolidatedData] = useState<ConsolidatedInventoryItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // 2. Estados de Filtros y Tablas
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterState>({ 
     farmacia: [], 
@@ -93,7 +110,7 @@ function App() {
   const [tableState, setTableState] = useState<TableState>({ 
     currentPage: 1, 
     itemsPerPage: 50, 
-    sortColumn: null, 
+    sortColumn: 'clasificacion', 
     sortDirection: 'asc' 
   });
   const [classificationSettings, setClassificationSettings] = useState<ClassificationSettingsType>({
@@ -103,18 +120,17 @@ function App() {
     periodos: [30, 40, 50, 60]
   });
 
+  // 3. Estados de UI / Layout
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window === 'undefined') return true;
     const storedTheme = localStorage.getItem('theme');
     return storedTheme ? storedTheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-
-  const [, setIsDashboardVisible] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
-  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'filters' | 'settings'>('filters');
 
+  // Efecto para el tema Dark/Light
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.toggle('dark', isDarkMode);
@@ -123,62 +139,66 @@ function App() {
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
+  // Lógica de procesamiento de archivos
   const handleFilesProcessed = (processedRawData: InventoryItem[]) => {
     const finalConsolidatedData = consolidateData(processedRawData, classificationSettings);
     setRawData(processedRawData);
     setConsolidatedData(finalConsolidatedData);
+    
+    // Resetear estados al cargar nueva data
     setFilters({ farmacia: [], departamento: [], marca: [], clasificacion: [] });
-    setSearchTerm('');
     setTableState({ currentPage: 1, itemsPerPage: 50, sortColumn: 'clasificacion', sortDirection: 'asc' });
-    setTimeout(() => setIsDashboardVisible(true), 100);
+    // Asegurar que el sidebar esté abierto al cargar data
+    setIsSidebarOpen(true);
   };
 
+  // Lógica de cambio de configuración
   const handleSettingsChange = (newSettings: ClassificationSettingsType) => {
     setClassificationSettings(newSettings);
     if (rawData.length > 0) {
       const newRawData = reprocessRawData(rawData, newSettings);
       setRawData(newRawData);
-      const reprocessedConsolidatedData = consolidateData(newRawData, newSettings);
-      setConsolidatedData(reprocessedConsolidatedData);
+      setConsolidatedData(consolidateData(newRawData, newSettings));
     }
   };
 
+  // Lógica de reseteo
   const confirmResetAndReload = () => {
     setRawData([]);
     setConsolidatedData([]);
     setSearchTerm('');
     setFilters({ farmacia: [], departamento: [], marca: [], clasificacion: [] });
-    setTableState({ currentPage: 1, itemsPerPage: 50, sortColumn: 'clasificacion', sortDirection: 'asc' });
-    setIsDashboardVisible(false);
     setIsResetConfirmOpen(false);
-    setIsSidebarOpen(false);
   };
 
+  // Lógica de filtrado (Memoized)
   const dataToDisplay = useMemo(() => {
     let baseData: ConsolidatedInventoryItem[];
     const selectedFarmacies = filters.farmacia;
 
+    // Filtrado inicial por farmacia
     if (selectedFarmacies.length === 1) {
-      const farmacyName = selectedFarmacies[0];
-      baseData = rawData
-        .filter(item => item.farmacia === farmacyName)
-        .map(item => ({
-          ...item,
-          nombres: [item.nombre],
-          departamentos: [item.departamento],
-          marcas: [item.marca],
-          farmacias: [item.farmacia],
-          existenciasPorFarmacia: { [item.farmacia]: item.existenciaActual },
-        }));
+       const farmacyName = selectedFarmacies[0];
+       baseData = rawData
+         .filter(item => item.farmacia === farmacyName)
+         .map(item => ({
+           ...item, 
+           nombres: [item.nombre], 
+           departamentos: [item.departamento], 
+           marcas: [item.marca], 
+           farmacias: [item.farmacia], 
+           existenciasPorFarmacia: { [item.farmacia]: item.existenciaActual } 
+         }));
     } else if (selectedFarmacies.length > 1) {
-      const filteredRawData = rawData.filter(item => selectedFarmacies.includes(item.farmacia));
-      baseData = consolidateData(filteredRawData, classificationSettings);
+       const filteredRawData = rawData.filter(item => selectedFarmacies.includes(item.farmacia));
+       baseData = consolidateData(filteredRawData, classificationSettings);
     } else {
-      baseData = consolidatedData;
+       baseData = consolidatedData;
     }
 
     let filtered = baseData;
 
+    // Búsqueda global
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(item => 
@@ -187,14 +207,13 @@ function App() {
       );
     }
 
+    // Filtros específicos
     if (filters.clasificacion.length > 0) {
       filtered = filtered.filter(item => filters.clasificacion.includes(item.clasificacion));
     }
-
     if (filters.departamento.length > 0) {
       filtered = filtered.filter(item => item.departamentos.some(d => filters.departamento.includes(d)));
     }
-
     if (filters.marca.length > 0) {
       filtered = filtered.filter(item => item.marcas.some(m => filters.marca.includes(m)));
     }
@@ -202,25 +221,30 @@ function App() {
     return filtered;
   }, [consolidatedData, rawData, searchTerm, filters, classificationSettings]);
 
-  useEffect(() => {
-    setTableState(prev => ({ ...prev, currentPage: 1 }));
-  }, [searchTerm, filters, tableState.itemsPerPage]);
+  // Resetear paginación al filtrar
+  useEffect(() => { 
+    setTableState(prev => ({ ...prev, currentPage: 1 })); 
+  }, [searchTerm, filters]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+    <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 overflow-hidden font-sans">
       <TextureBackground />
       <StarryNight />
 
       <CompactHeader 
-        isDarkMode={isDarkMode}
-        toggleTheme={toggleTheme}
-        hasData={consolidatedData.length > 0}
+        isDarkMode={isDarkMode} 
+        toggleTheme={toggleTheme} 
+        hasData={consolidatedData.length > 0} 
         onResetClick={() => setIsResetConfirmOpen(true)}
+        isSidebarOpen={isSidebarOpen}
+        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
 
       {consolidatedData.length === 0 ? (
-        <main className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-4xl space-y-8">
+        // --- VISTA DE CARGA INICIAL (Upload) ---
+        <main className="flex-1 overflow-auto flex items-center justify-center p-6">
+          <div className="w-full max-w-2xl space-y-6">
+            
             <FileUploader 
               onFilesProcessed={handleFilesProcessed} 
               isProcessing={isProcessing} 
@@ -228,143 +252,115 @@ function App() {
               classificationSettings={classificationSettings} 
             />
             
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
-              <button
-                onClick={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
-                className="w-full p-4 text-left font-semibold flex justify-between items-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors rounded-t-xl"
-              >
-                Configuración de Clasificación
-                <Settings className={`h-5 w-5 transition-transform duration-300 ${isSettingsCollapsed ? '' : 'rotate-180'}`} />
-              </button>
-              
-              {!isSettingsCollapsed && (
-                <div className="p-6 border-t border-slate-200 dark:border-slate-700">
-                  <ClassificationSettings settings={classificationSettings} onSettingsChange={handleSettingsChange} />
-                </div>
-              )}
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <Settings size={18}/> Configuración Inicial
+                </h3>
+                <ClassificationSettings 
+                  settings={classificationSettings} 
+                  onSettingsChange={handleSettingsChange} 
+                />
             </div>
           </div>
         </main>
       ) : (
-        <>
-          {/* Mobile Sidebar Toggle */}
-          <div className="lg:hidden sticky top-14 z-40 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-            <div className="px-4 py-2">
-              <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium"
-              >
-                {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-                {isSidebarOpen ? 'Cerrar Panel' : 'Filtros y Configuración'}
-              </button>
+        // --- VISTA DASHBOARD PRINCIPAL ---
+        <div className="flex-1 flex overflow-hidden">
+          
+          {/* SIDEBAR: Ancho fijo o cero para animación */}
+          <aside className={`
+             ${isSidebarOpen ? 'w-72 border-r' : 'w-0'} 
+             bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-700
+             flex flex-col transition-all duration-300 ease-in-out relative
+          `}>
+            {/* Pestañas del Sidebar */}
+            <div className="flex border-b border-slate-200 dark:border-slate-700 shrink-0">
+               <button 
+                 onClick={() => setActiveTab('filters')} 
+                 className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors
+                   ${activeTab === 'filters' 
+                     ? 'bg-white dark:bg-slate-800 text-blue-600 border-b-2 border-blue-500' 
+                     : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+               >
+                 Filtros
+               </button>
+               <button 
+                 onClick={() => setActiveTab('settings')} 
+                 className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors
+                   ${activeTab === 'settings' 
+                     ? 'bg-white dark:bg-slate-800 text-blue-600 border-b-2 border-blue-500' 
+                     : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+               >
+                 Ajustes
+               </button>
             </div>
-          </div>
-
-          <div className="flex-1 flex">
-            {/* Sidebar */}
-            <aside className={`
-              ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-              lg:translate-x-0 lg:static fixed inset-y-0 left-0 z-30
-              w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700
-              transition-transform duration-300 ease-in-out overflow-y-auto
-            `}>
-              <div className="p-4 space-y-4">
-                {/* Quick Metrics */}
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3">
-                  <MetricsDashboard data={dataToDisplay} />
-                </div>
-
-                {/* Filters */}
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                  <button
-                    onClick={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
-                    className="w-full p-3 text-left font-semibold flex justify-between items-center text-slate-700 dark:text-slate-200"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Filter size={18} />
-                      Filtros
-                    </div>
-                    <Settings className={`h-4 w-4 transition-transform duration-300 ${isFiltersCollapsed ? '' : 'rotate-180'}`} />
-                  </button>
-                  
-                  {!isFiltersCollapsed && (
-                    <FilterPanel data={consolidatedData} filters={filters} onFilterChange={setFilters} />
-                  )}
-                </div>
-
-                {/* Settings */}
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                  <button
-                    onClick={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
-                    className="w-full p-3 text-left font-semibold flex justify-between items-center text-slate-700 dark:text-slate-200"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Settings size={18} />
-                      Configuración
-                    </div>
-                    <Settings className={`h-4 w-4 transition-transform duration-300 ${isSettingsCollapsed ? '' : 'rotate-180'}`} />
-                  </button>
-                  
-                  {!isSettingsCollapsed && (
-                    <div className="p-3">
-                      <ClassificationSettings settings={classificationSettings} onSettingsChange={handleSettingsChange} />
-                    </div>
-                  )}
-                </div>
-
-                {/* Export */}
-                <ExportButtons rawData={rawData} settings={classificationSettings} />
-              </div>
-            </aside>
-
-            {/* Sidebar Overlay */}
-            {isSidebarOpen && (
-              <div 
-                className="fixed inset-0 bg-black/50 z-20 lg:hidden" 
-                onClick={() => setIsSidebarOpen(false)}
-              />
-            )}
-
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col min-w-0">
-              {/* Search and Controls Bar */}
-              <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-4">
-                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                  <div className="flex-1 max-w-md">
-                    <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+            
+            {/* Contenido del Sidebar con Scroll */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
+               {activeTab === 'filters' ? (
+                  <FilterPanel 
+                    data={consolidatedData} 
+                    filters={filters} 
+                    onFilterChange={setFilters} 
+                  />
+               ) : (
+                  <div className="space-y-6">
+                     <div className="bg-white dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <ClassificationSettings 
+                          settings={classificationSettings} 
+                          onSettingsChange={handleSettingsChange} 
+                        />
+                     </div>
+                     <ExportButtons 
+                       rawData={rawData} 
+                       settings={classificationSettings} 
+                     />
                   </div>
-                  
-                  <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-300">
-                    <span className="flex items-center gap-1">
-                      <Briefcase className="h-4 w-4" />
-                      <strong>{dataToDisplay.length.toLocaleString()}</strong> productos
-                    </span>
-                  </div>
-                </div>
-              </div>
+               )}
+            </div>
+          </aside>
 
-              {/* Data Table - Full Height */}
-              <div className="flex-1 bg-white dark:bg-slate-800">
+          {/* ÁREA PRINCIPAL DE DATOS */}
+          <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 relative">
+             
+             {/* Toolbar Superior: Búsqueda y Contador */}
+             <div className="h-14 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 bg-white dark:bg-slate-900 shrink-0">
+                <div className="w-full max-w-md">
+                   <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+                </div>
+                <div className="flex items-center gap-4 pl-4">
+                   <span className="text-xs text-slate-500 whitespace-nowrap">
+                      Viendo <strong className="text-slate-800 dark:text-slate-200">{dataToDisplay.length.toLocaleString()}</strong> resultados
+                   </span>
+                </div>
+             </div>
+
+             {/* Ticker de Métricas */}
+             <div className="shrink-0 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-700">
+                <MetricsDashboard data={dataToDisplay} />
+             </div>
+
+             {/* Tabla: Llena el espacio restante */}
+             <div className="flex-1 overflow-hidden relative">
                 <DataTable 
                   data={dataToDisplay} 
                   tableState={tableState} 
                   onTableStateChange={setTableState} 
                   settings={classificationSettings} 
                 />
-              </div>
-            </main>
-          </div>
-        </>
+             </div>
+          </main>
+        </div>
       )}
 
-      <ConfirmationDialog
-        isOpen={isResetConfirmOpen}
-        onClose={() => setIsResetConfirmOpen(false)}
-        onConfirm={confirmResetAndReload}
-        title="¿Reiniciar y Borrar Datos?"
-        message="Esta acción eliminará todos los datos cargados y reiniciará la aplicación. ¿Estás seguro?"
-        confirmText="Sí, empezar de nuevo"
-        cancelText="No, cancelar"
+      <ConfirmationDialog 
+        isOpen={isResetConfirmOpen} 
+        onClose={() => setIsResetConfirmOpen(false)} 
+        onConfirm={confirmResetAndReload} 
+        title="¿Reiniciar análisis?" 
+        message="Se perderán los datos actuales cargados en memoria. ¿Deseas continuar?" 
+        confirmText="Sí, reiniciar"
+        cancelText="Cancelar"
       />
     </div>
   );
